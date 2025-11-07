@@ -2,10 +2,10 @@
     "version": "https://jsonfeed.org/version/1",
     "title": "CrossGuns Snooker League",
     "description": "",
-    "home_page_url": "https://ZarleyLtd.github.io/crossgunssnooker",
-    "feed_url": "https://ZarleyLtd.github.io/crossgunssnooker/feed.json",
+    "home_page_url": "https://ZarleyLtd.github.io/CrossGunsSnooker",
+    "feed_url": "https://ZarleyLtd.github.io/CrossGunsSnooker/feed.json",
     "user_comment": "",
-    "icon": "https://ZarleyLtd.github.io/crossgunssnooker/media/website/crossgunslogo.png",
+    "icon": "https://ZarleyLtd.github.io/CrossGunsSnooker/media/website/crossgunslogo.png",
     "author": {
         "name": "JP"
     },
