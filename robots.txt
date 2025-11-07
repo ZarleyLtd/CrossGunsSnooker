@@ -1,0 +1,3 @@
+User-agent: *
+Disallow:
+Sitemap: https://ZarleyLtd.github.io/crossgunssnooker/sitemap.xml
