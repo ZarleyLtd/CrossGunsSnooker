@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Manage League seasons - CrossGuns Snooker League</title>
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <noscript
+      ><style>
+        img[loading] {
+          opacity: 1;
+        }
+      </style></noscript
+    >
+    <script src="assets/js/config/app-config.js"></script>
+    <script src="assets/js/utils/api-client.js"></script>
+    <script src="assets/js/utils/admin-mode.js"></script>
+    <script src="assets/js/utils/formatters.js"></script>
+    <script src="assets/js/utils/image-loader.js"></script>
+    <script defer src="assets/js/pages/admin-league-seasons.js"></script>
+    <script defer src="assets/js/main.js"></script>
+  </head>
+  <body class="page-template">
+    <header class="top js-header">
+      <a class="logo" href="index.html">
+        <img src="assets/images/crossguns-logo.png" alt="CrossGuns Snooker League" width="281" height="445" />
+      </a>
+      <nav class="navbar js-navbar">
+        <button class="navbar__toggle js-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+          <span class="navbar__toggle-box">
+            <span class="navbar__toggle-inner">Menu</span>
+          </span>
+        </button>
+        <ul class="navbar__menu">
+          <li>
+            <a href="index.html" target="_self">Home</a>
+          </li>
+          <li>
+            <a href="leagues.html" target="_self">Leagues</a>
+          </li>
+          <li>
+            <a href="fixtures.html" target="_self">Fixtures</a>
+          </li>
+          <li>
+            <a href="results.html" target="_self">Results</a>
+          </li>
+          <li>
+            <a href="top-breaks.html" target="_self">Top Breaks</a>
+          </li>
+          <li>
+            <a href="handicaps.html" target="_self">Handicaps</a>
+          </li>
+          <li>
+            <a href="rules.html" target="_self">Rules</a>
+          </li>
+          <li class="nav-admin-only" hidden aria-hidden="true">
+            <a href="admin-fixtures.html" target="_self">Manage Fixtures</a>
+          </li>
+          <li class="nav-admin-only" hidden aria-hidden="true">
+            <a href="admin-players.html" target="_self">Manage Players</a>
+          </li>
+          <li class="nav-admin-only" hidden aria-hidden="true">
+            <a href="admin-league-seasons.html" target="_self">Manage League seasons</a>
+          </li>
+          <li>
+            <button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button>
+          </li>
+        </ul>
+      </nav>
+    </header>
+    <main class="page">
+      <article class="content">
+        <div class="hero">
+          <header class="hero__content hero__content--centered">
+            <div class="wrapper"><h1>Manage League seasons</h1></div>
+          </header>
+          <figure class="hero__image">
+            <div class="hero__image-wrapper">
+              <img
+                src="assets/images/crossguns-hero.png"
+                loading="eager"
+                height="529"
+                width="1456"
+                alt="Snooker table"
+              />
+            </div>
+          </figure>
+        </div>
+        <div class="entry-wrapper content__entry" id="adminLeagueSeasonsRoot">
+          <p id="adminLsGate" class="msg msg--info">
+            Unlock <strong>Admin Mode</strong> from the menu to edit seasons, leagues, and rosters.
+          </p>
+          <div id="adminLsPanel" hidden>
+            <p id="adminLsMsg" class="msg" hidden></p>
+
+            <h2 class="h3">Seasons</h2>
+            <form id="adminLsSeasonForm">
+              <p>
+                <label for="adminLsSeasonId">Season id</label><br />
+                <input type="text" id="adminLsSeasonId" required />
+              </p>
+              <p>
+                <label for="adminLsSeasonName">Name</label><br />
+                <input type="text" id="adminLsSeasonName" required />
+              </p>
+              <p>
+                <label for="adminLsSeasonStart">Starts on</label><br />
+                <input type="date" id="adminLsSeasonStart" />
+              </p>
+              <p>
+                <label for="adminLsSeasonEnd">Ends on</label><br />
+                <input type="date" id="adminLsSeasonEnd" />
+              </p>
+              <p>
+                <label><input type="checkbox" id="adminLsSeasonCurrent" /> Current season</label>
+              </p>
+              <p>
+                <button type="submit" class="btn">Save season</button>
+                <button type="button" class="btn" id="adminLsSeasonClear">Clear</button>
+              </p>
+            </form>
+            <table>
+              <thead>
+                <tr>
+                  <th>Id</th>
+                  <th>Name</th>
+                  <th>Start</th>
+                  <th>End</th>
+                  <th>Current</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="adminLsSeasonsTbody"></tbody>
+            </table>
+
+            <h2 class="h3">Leagues</h2>
+            <form id="adminLsLeagueForm">
+              <p>
+                <label for="adminLsLeagueId">League id</label><br />
+                <input type="text" id="adminLsLeagueId" required />
+              </p>
+              <p>
+                <label for="adminLsLeagueName">Name</label><br />
+                <input type="text" id="adminLsLeagueName" required />
+              </p>
+              <p>
+                <label for="adminLsLeagueOrder">Display order</label><br />
+                <input type="number" id="adminLsLeagueOrder" value="0" />
+              </p>
+              <p>
+                <button type="submit" class="btn">Save league</button>
+                <button type="button" class="btn" id="adminLsLeagueClear">Clear</button>
+              </p>
+            </form>
+            <table>
+              <thead>
+                <tr>
+                  <th>Id</th>
+                  <th>Name</th>
+                  <th>Order</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="adminLsLeaguesTbody"></tbody>
+            </table>
+
+            <h2 class="h3">Season roster</h2>
+            <p>
+              <label for="adminLsRosterSeason">Season</label><br />
+              <select id="adminLsRosterSeason"></select>
+            </p>
+            <form id="adminLsRosterAddForm">
+              <datalist id="adminLsPlayersDatalist"></datalist>
+              <p>
+                <label for="adminLsRosterPlayerId">Player id</label><br />
+                <input type="text" id="adminLsRosterPlayerId" list="adminLsPlayersDatalist" required />
+              </p>
+              <p>
+                <label for="adminLsRosterLeagueId">League</label><br />
+                <select id="adminLsRosterLeagueId"></select>
+              </p>
+              <p><button type="submit" class="btn">Add / update membership</button></p>
+            </form>
+            <table>
+              <thead>
+                <tr>
+                  <th>Player id</th>
+                  <th>Name</th>
+                  <th>League</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="adminLsRosterTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </article>
+    </main>
+    <footer class="footer">
+      <div class="wrapper">
+        <nav class="footer__nav">
+          <ul>
+            <li>
+              <a href="leagues.html" class="al" target="_self">Leagues</a>
+            </li>
+            <li>
+              <a href="fixtures.html" class="al" target="_self">Fixtures</a>
+            </li>
+            <li>
+              <a href="results.html" class="al" target="_self">Results</a>
+            </li>
+          </ul>
+        </nav>
+        <div class="footer__copyright">
+          <p><span style="color: #169179">by JP</span></p>
+        </div>
+        <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top">
+          <svg width="20" height="20" viewBox="0 0 24 24">
+            <path
+              d="M8 6L12 2L16 6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M12 2V22"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+    </footer>
+    <script defer src="assets/js/scripts.min.js"></script>
+    <script>
+      window.themeMenuConfig = {
+        mobileMenuMode: "overlay",
+        animationSpeed: 300,
+        submenuWidth: "auto",
+        doubleClickTime: 500,
+        mobileMenuExpandableSubmenus: true,
+        relatedContainerForOverlayMenuSelector: ".top",
+      };
+    </script>
+    <script src="assets/js/utils/nav-active.js"></script>
+  </body>
+</html>

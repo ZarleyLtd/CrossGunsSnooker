@@ -1,0 +1,18 @@
+{
+  "name": "crossguns-snooker",
+  "version": "1.0.0",
+  "description": "CrossGuns Snooker League website. Static HTML + Supabase backend (crossguns-api Edge Function).",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "migrate": "node scripts/migrate-sheets-to-supabase.mjs",
+    "migrate:dry-run": "node scripts/migrate-sheets-to-supabase.mjs --dry-run",
+    "verify": "node scripts/verify-migration.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

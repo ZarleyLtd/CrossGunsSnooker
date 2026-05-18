@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Manage Players - CrossGuns Snooker League</title>
+    <link rel="stylesheet" href="assets/css/style.css" />
+    <noscript
+      ><style>
+        img[loading] {
+          opacity: 1;
+        }
+      </style></noscript
+    >
+    <script src="assets/js/config/app-config.js"></script>
+    <script src="assets/js/utils/api-client.js"></script>
+    <script src="assets/js/utils/admin-mode.js"></script>
+    <script src="assets/js/utils/formatters.js"></script>
+    <script src="assets/js/utils/image-loader.js"></script>
+    <script src="assets/js/utils/player-slug.js"></script>
+    <script src="assets/js/utils/csv-parse.js"></script>
+    <script defer src="assets/js/pages/admin-players.js"></script>
+    <script defer src="assets/js/main.js"></script>
+  </head>
+  <body class="page-template">
+    <header class="top js-header">
+      <a class="logo" href="index.html">
+        <img src="assets/images/crossguns-logo.png" alt="CrossGuns Snooker League" width="281" height="445" />
+      </a>
+      <nav class="navbar js-navbar">
+        <button class="navbar__toggle js-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+          <span class="navbar__toggle-box">
+            <span class="navbar__toggle-inner">Menu</span>
+          </span>
+        </button>
+        <ul class="navbar__menu">
+          <li>
+            <a href="index.html" target="_self">Home</a>
+          </li>
+          <li>
+            <a href="leagues.html" target="_self">Leagues</a>
+          </li>
+          <li>
+            <a href="fixtures.html" target="_self">Fixtures</a>
+          </li>
+          <li>
+            <a href="results.html" target="_self">Results</a>
+          </li>
+          <li>
+            <a href="top-breaks.html" target="_self">Top Breaks</a>
+          </li>
+          <li>
+            <a href="handicaps.html" target="_self">Handicaps</a>
+          </li>
+          <li>
+            <a href="rules.html" target="_self">Rules</a>
+          </li>
+          <li class="nav-admin-only" hidden aria-hidden="true">
+            <a href="admin-fixtures.html" target="_self">Manage Fixtures</a>
+          </li>
+          <li class="nav-admin-only" hidden aria-hidden="true">
+            <a href="admin-players.html" target="_self">Manage Players</a>
+          </li>
+          <li class="nav-admin-only" hidden aria-hidden="true">
+            <a href="admin-league-seasons.html" target="_self">Manage League seasons</a>
+          </li>
+          <li>
+            <button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button>
+          </li>
+        </ul>
+      </nav>
+    </header>
+    <main class="page">
+      <article class="content">
+        <div class="hero">
+          <header class="hero__content hero__content--centered">
+            <div class="wrapper"><h1>Manage Players</h1></div>
+          </header>
+          <figure class="hero__image">
+            <div class="hero__image-wrapper">
+              <img
+                src="assets/images/crossguns-hero.png"
+                loading="eager"
+                height="529"
+                width="1456"
+                alt="Snooker table"
+              />
+            </div>
+          </figure>
+        </div>
+        <div class="entry-wrapper content__entry" id="adminPlayersRoot">
+          <p id="adminPlayersGate" class="msg msg--info">
+            Unlock <strong>Admin Mode</strong> from the menu to manage players and handicaps.
+          </p>
+          <div id="adminPlayersPanel" hidden>
+            <p id="adminPlMsg" class="msg" hidden></p>
+
+            <h2 class="h3">Bulk CSV (players + handicaps)</h2>
+            <p>
+              Columns: <code>PlayerName</code>, <code>handicap</code>, <code>EffectiveDate</code> (comma or tab). Optional header
+              with PlayerName. Player id is derived from the name (same rules as the sheet migration script).
+            </p>
+            <p>
+              <label><input type="checkbox" id="adminPlRosterChk" /> Also add each player to season roster</label>
+            </p>
+            <p>
+              <label for="adminPlRosterSeason">Roster season</label><br />
+              <select id="adminPlRosterSeason"></select>
+            </p>
+            <p>
+              <label for="adminPlRosterLeague">Roster league</label><br />
+              <select id="adminPlRosterLeague"></select>
+            </p>
+            <p>
+              <textarea id="adminPlCsv" rows="8" style="width: 100%; max-width: 40rem" placeholder="Jane Doe,42,2025-09-01"></textarea>
+            </p>
+            <p><button type="button" class="btn" id="adminPlBulkRun">Import rows</button></p>
+            <pre id="adminPlLog" class="admin-log" style="max-height: 12rem; overflow: auto"></pre>
+
+            <h2 class="h3">Players</h2>
+            <form id="adminPlPlayerForm">
+              <p>
+                <label for="adminPlPlayerId">Player id (leave blank to auto from name)</label><br />
+                <input type="text" id="adminPlPlayerId" />
+              </p>
+              <p>
+                <label for="adminPlPlayerName">Name</label><br />
+                <input type="text" id="adminPlPlayerName" required />
+              </p>
+              <p>
+                <label><input type="checkbox" id="adminPlPlayerActive" checked /> Active</label>
+              </p>
+              <p>
+                <button type="submit" class="btn">Save player</button>
+                <button type="button" class="btn" id="adminPlPlayerClear">Clear</button>
+              </p>
+            </form>
+            <table>
+              <thead>
+                <tr>
+                  <th>Id</th>
+                  <th>Name</th>
+                  <th>Active</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="adminPlPlayersTbody"></tbody>
+            </table>
+
+            <h2 class="h3">Handicaps (full history)</h2>
+            <form id="adminPlHcForm">
+              <input type="hidden" id="adminPlHcId" />
+              <p>
+                <label for="adminPlHcPlayerId">Player id</label><br />
+                <input type="text" id="adminPlHcPlayerId" required />
+              </p>
+              <p>
+                <label for="adminPlHcVal">Handicap</label><br />
+                <input type="number" id="adminPlHcVal" required />
+              </p>
+              <p>
+                <label for="adminPlHcDate">Effective date</label><br />
+                <input type="date" id="adminPlHcDate" required />
+              </p>
+              <p>
+                <button type="submit" class="btn">Save handicap</button>
+                <button type="button" class="btn" id="adminPlHcClear">Clear</button>
+              </p>
+            </form>
+            <table>
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>Hcp</th>
+                  <th>Date</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="adminPlHandicapsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </article>
+    </main>
+    <footer class="footer">
+      <div class="wrapper">
+        <nav class="footer__nav">
+          <ul>
+            <li>
+              <a href="leagues.html" class="al" target="_self">Leagues</a>
+            </li>
+            <li>
+              <a href="fixtures.html" class="al" target="_self">Fixtures</a>
+            </li>
+            <li>
+              <a href="results.html" class="al" target="_self">Results</a>
+            </li>
+          </ul>
+        </nav>
+        <div class="footer__copyright">
+          <p><span style="color: #169179">by JP</span></p>
+        </div>
+        <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top">
+          <svg width="20" height="20" viewBox="0 0 24 24">
+            <path
+              d="M8 6L12 2L16 6"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M12 2V22"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+    </footer>
+    <script defer src="assets/js/scripts.min.js"></script>
+    <script>
+      window.themeMenuConfig = {
+        mobileMenuMode: "overlay",
+        animationSpeed: 300,
+        submenuWidth: "auto",
+        doubleClickTime: 500,
+        mobileMenuExpandableSubmenus: true,
+        relatedContainerForOverlayMenuSelector: ".top",
+      };
+    </script>
+    <script src="assets/js/utils/nav-active.js"></script>
+  </body>
+</html>

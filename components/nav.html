@@ -1,0 +1,32 @@
+<!--
+  NAVIGATION COMPONENT
+  This is used within the header component. The active class is set dynamically by nav-active.js
+-->
+<nav class="navbar js-navbar">
+  <button class="navbar__toggle js-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+    <span class="navbar__toggle-box">
+      <span class="navbar__toggle-inner">Menu</span>
+    </span>
+  </button>
+  <ul class="navbar__menu">
+    <li><a href="index.html" target="_self">Home</a></li>
+    <li><a href="leagues.html" target="_self">Leagues</a></li>
+    <li><a href="fixtures.html" target="_self">Fixtures</a></li>
+    <li><a href="results.html" target="_self">Results</a></li>
+    <li><a href="top-breaks.html" target="_self">Top Breaks</a></li>
+    <li><a href="handicaps.html" target="_self">Handicaps</a></li>
+    <li><a href="rules.html" target="_self">Rules</a></li>
+    <li class="nav-admin-only" hidden aria-hidden="true">
+      <a href="admin-fixtures.html" target="_self">Manage Fixtures</a>
+    </li>
+    <li class="nav-admin-only" hidden aria-hidden="true">
+      <a href="admin-players.html" target="_self">Manage Players</a>
+    </li>
+    <li class="nav-admin-only" hidden aria-hidden="true">
+      <a href="admin-league-seasons.html" target="_self">Manage League seasons</a>
+    </li>
+    <li>
+      <button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button>
+    </li>
+  </ul>
+</nav>

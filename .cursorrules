@@ -1,0 +1,46 @@
+# Project: CrossGuns Snooker League website
+
+## Component Architecture
+- We use a component-based approach for HTML.
+- **Source Components**: Located in `/components/` (e.g., `header.html`, `footer.html`, `nav.html`, `scripts.html`).
+- **Implementation**: These components are pasted directly into final `.html` files (no runtime includes; Publii is no longer involved).
+
+## JavaScript Module Architecture
+- We use a modular, component-based approach for JavaScript.
+- **Configuration**: Located in `/assets/js/config/` (`app-config.js` - Edge Function URL).
+- **Utilities**: Located in `/assets/js/utils/` (`api-client.js`, `admin-mode.js`, `formatters.js`, etc.).
+- **Components**: Reusable JS components in `/assets/js/components/` (e.g., `league-standings.js`).
+- **Pages**: Page-specific modules in `/assets/js/pages/` (`index.js`, `fixtures.js`, `leagues.js`, `top-breaks.js`, etc.).
+- **Entry Point**: Page router in `/assets/js/main.js`, loaded with `defer`.
+- **No Duplication**: Common code must be extracted to utilities or components, never duplicated.
+
+## Backend
+- **Database**: Supabase Postgres, schema `crossguns` on project `Apps` (`yzyipxvlsoxfphwobfkb`).
+- **Schema**: `leagues`, `seasons`, `season_players`, `players`, `fixtures`, `handicaps`, `breaks`. Three groups (`league_id` = 1, 2, 3, named Group 1/2/3). Standings are computed live via `league_standings_v`; head-to-head via `head_to_head_v`; the adjusted-break tiebreaker uses `max_adjusted_break_v` (raw break + handicap on match date, raw value >= 25).
+- **API**: Single Edge Function `crossguns-api` exposing JSON read endpoints (`getFixtures`, `getStandings`, `getHandicaps`, `getPlayers`, `getTopBreaks`, `getSeasons`, `getLeagues`, `getBreaksForFixture`) and authenticated POST writes (`adminLogin`, upserts, `updateFixtureResult`, `deleteBreak`, `deleteFixture`, `deleteHandicap`, `deletePlayer`, `deleteSeason`, `deleteLeague`). All read endpoints accept `?season=<id>` (default: row in `seasons` with `is_current = true`). Source: `supabase/functions/crossguns-api/index.ts`.
+- **Migrations**: SQL files in `supabase/migrations/`. Apply via `supabase db push` or the `apply_migration` MCP tool.
+- **Data sync**: `scripts/migrate-sheets-to-supabase.mjs` reads the legacy CrossGuns Google Sheet CSVs and upserts into Supabase. Idempotent.
+- **Plans**: Architectural plans live in `docs/plans/`.
+
+## CrossGuns-specific UI parity
+The five public pages must keep the legacy CrossGuns behaviour:
+- `index.html`: 3 group leaders (`g1-leader`/`g2-leader`/`g3-leader`), no knockout panel. Tied leaders shown as "X & Y (tied)" when Pts/+/-/W match.
+- `fixtures.html`: radio filter All/Group 1/Group 2/Group 3; upcoming-only; grouped by Game Week; admin "V" button opens entry dialog.
+- `results.html`: radio filter; only fixtures with a recorded score; winner (score = 2) is bolded; admin can re-open the dialog via `[score]` button.
+- `leagues.html`: three monospaced `<pre>` blocks (`league-a`/`league-b`/`league-c`); ordering = full CrossGuns tiebreak chain.
+- `top-breaks.html`: radio filter; container `breaks-output`; shows raw + " plus X" annotation when handicap pushed the value up, otherwise "[actual break]"; only raw value >= 25.
+
+## Rules for AI (Cursor)
+1. **HTML Syncing**: Whenever I ask to update the "Header" or "Footer," always update `/components/` first, then propagate the same markup to every `.html` page.
+2. **JavaScript Organization**: When adding or modifying JS:
+   - Update shared utilities in `/assets/js/utils/` first.
+   - Update reusable components in `/assets/js/components/` for shared UI logic.
+   - Update page-specific modules in `/assets/js/pages/` for page logic.
+   - Never duplicate code - extract common patterns to utilities/components.
+3. **Backend Configuration**: To change the API endpoint, only update `/assets/js/config/app-config.js` (single source of truth for the Edge Function URL).
+4. **API access pattern**: Pages call `ApiClient.get({ action: '...' })` / `ApiClient.post(...)` (in `assets/js/utils/api-client.js`). Never call PostgREST or supabase-js directly from the browser. New read endpoints go in `supabase/functions/crossguns-api/index.ts`.
+5. **CORS-safe fetches**: GET with no custom headers, or POST with `application/x-www-form-urlencoded`, to avoid preflights.
+6. **Schema changes**: Add a new file in `supabase/migrations/` (timestamp-prefixed) and apply via `supabase db push` or the `apply_migration` MCP tool. All objects live in the `crossguns` schema.
+7. **Script Loading Order**: config -> utils -> components -> pages -> main.js
+8. **Relative Paths**: Always use relative paths (e.g., `assets/css/style.css`, never `/assets/css/...` or absolute URLs).
+9. **CrossGuns parity**: When changing any of the five core public pages, preserve the UX listed under "CrossGuns-specific UI parity" above. If a behaviour in the ierne-snooker template conflicts with CrossGuns, prefer CrossGuns.
