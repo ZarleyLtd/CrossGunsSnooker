@@ -185,8 +185,10 @@ create or replace view crossguns.fixture_results_v as
      and f.score_b is not null;
 
 -- Standings derived from fixture_results_v.
--- Win = 2 pts, draw = 0 pts (double-walkover 0-0 awards zero to both),
--- loss = 0 pts.
+-- CrossGuns scoring rule: 1 point per FRAME won.
+-- Walkovers are recorded as 2-0 (winner gets 2 pts, loser 0); double-walkovers
+-- are 0-0 (zero points to both).
+-- (Superseded by 20260518181622_pts_per_frame_won.sql.)
 create or replace view crossguns.league_standings_v as
   select r.season_id,
          r.league_id,
@@ -196,7 +198,7 @@ create or replace view crossguns.league_standings_v as
          count(*) filter (where r.frames_for < r.frames_against) as lost,
          count(*) filter (where r.frames_for = r.frames_against) as drawn,
          coalesce(sum(r.frames_for), 0) - coalesce(sum(r.frames_against), 0) as frame_diff,
-         count(*) filter (where r.frames_for > r.frames_against) * 2 as points
+         coalesce(sum(r.frames_for), 0) as points
     from crossguns.fixture_results_v r
    group by r.season_id, r.league_id, r.player_id;
 
@@ -210,7 +212,7 @@ create or replace view crossguns.head_to_head_v as
          count(*) filter (where r.frames_for > r.frames_against) as h2h_wins,
          count(*) filter (where r.frames_for < r.frames_against) as h2h_losses,
          coalesce(sum(r.frames_for), 0) - coalesce(sum(r.frames_against), 0) as h2h_frame_diff,
-         count(*) filter (where r.frames_for > r.frames_against) * 2 as h2h_points
+         coalesce(sum(r.frames_for), 0) as h2h_points
     from crossguns.fixture_results_v r
    group by r.season_id, r.league_id, r.player_id, r.opponent_id;
 

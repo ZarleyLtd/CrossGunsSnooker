@@ -58,10 +58,11 @@ erDiagram
 Rules baked into the view:
 
 - Only `stage = 'league'` fixtures with both `score_a` and `score_b` set count.
-- **Win** (frames_for > frames_against) = 2 points.
-- **Draw** (frames_for == frames_against, e.g. 0-0 double-walkover) = 0 points.
-- **Loss** (frames_for < frames_against) = 0 points.
+- **Pts = frames won** (1 point per frame won). E.g. a 2-1 win is worth 2 pts
+  to the winner and 1 pt to the loser; a 2-0 win is worth 2 pts and 0 pts.
 - `frame_diff = sum(frames_for) - sum(frames_against)`.
+- `W` / `L` / `D` count match outcomes (frames_for vs frames_against) and are
+  used purely as the tiebreaker chain - they do not contribute to `Pts`.
 
 Walkovers are recorded as 2-0; double-walkovers as 0-0 (zero points to both),
 matching how the league has historically scored them.
