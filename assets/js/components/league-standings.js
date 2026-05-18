@@ -1,9 +1,9 @@
 // League Standings Renderer Component
 // Operates on already-shaped league rows (objects with keys
 // 'Player Name', P, W, L, '+/-', Pts) returned by ApiClient.
-// Server already applies the full CrossGuns tiebreak chain, so this
-// component preserves incoming order and only assigns "joint rank"
-// when two adjacent rows are identical on (Pts, +/-, W).
+// Server applies the full CrossGuns tiebreak chain (Pts -> +/- -> W ->
+// H2H -> max adjusted break) and returns a Rank per row. Joint rank is
+// only when Rank matches the previous row (fully tied after all breakers).
 
 const LeagueStandings = {
   /**
@@ -41,26 +41,10 @@ const LeagueStandings = {
     const sep = '-'.repeat(header.length);
     const lines = [header, sep];
 
-    let lastPts = null;
-    let lastPM = null;
-    let lastW = null;
-    let lastRank = 0;
-
     league.forEach(function (player, idx) {
-      const pts = Formatters.toInt(player.Pts);
-      const pm = Formatters.toInt(player['+/-']);
-      const won = Formatters.toInt(player.W);
-
-      let rank;
-      if (idx > 0 && pts === lastPts && pm === lastPM && won === lastW) {
-        rank = lastRank;
-      } else {
-        rank = idx + 1;
-        lastRank = rank;
-      }
-      lastPts = pts;
-      lastPM = pm;
-      lastW = won;
+      const rank = player.Rank != null && player.Rank !== ''
+        ? Formatters.toInt(player.Rank)
+        : idx + 1;
 
       lines.push([
         Formatters.padLeft(rank, 2),

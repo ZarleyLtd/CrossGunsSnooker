@@ -3,8 +3,8 @@
 // league using the full CrossGuns tiebreak chain (Pts -> +/- -> W -> H2H
 // -> max adjusted break). The Edge Function already applies that ordering
 // server-side, so this module simply takes the first row of each league.
-// If the first two rows are tied on the primary stats (Pts, +/-, W) the
-// page shows "Name1 & Name2 (tied)" to match the legacy joint-leader UX.
+// If multiple players share rank 1 (fully tied after the full tiebreak
+// chain) the page shows "Name1 & Name2 (tied)" to match the legacy UX.
 
 const IndexPage = {
   TARGETS: { '1': 'g1-leader', '2': 'g2-leader', '3': 'g3-leader' },
@@ -18,21 +18,12 @@ const IndexPage = {
 
   topPlayersLabel: function (rows) {
     if (!rows || rows.length === 0) return 'N/A';
-    const first = rows[0];
-    const tiedNames = [first['Player Name']];
-    for (let i = 1; i < rows.length; i++) {
-      const r = rows[i];
-      const samePts = Formatters.toInt(r.Pts) === Formatters.toInt(first.Pts);
-      const samePM = Formatters.toInt(r['+/-']) === Formatters.toInt(first['+/-']);
-      const sameW = Formatters.toInt(r.W) === Formatters.toInt(first.W);
-      if (samePts && samePM && sameW) {
-        tiedNames.push(r['Player Name']);
-      } else {
-        break;
-      }
-    }
-    if (tiedNames.length === 1) return tiedNames[0];
-    return tiedNames.join(' & ') + ' (tied)';
+    const leaders = rows.filter(function (r) {
+      return Formatters.toInt(r.Rank) === 1;
+    });
+    if (leaders.length === 0) return rows[0]['Player Name'] || 'N/A';
+    if (leaders.length === 1) return leaders[0]['Player Name'];
+    return leaders.map(function (r) { return r['Player Name']; }).join(' & ') + ' (tied)';
   },
 
   init: async function () {

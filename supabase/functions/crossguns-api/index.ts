@@ -217,17 +217,42 @@ type ShapedRow = {
   drawn: number;
   frameDiff: number;
   points: number;
+  /** Fingerprint after the full tiebreak chain; equal keys => joint display rank. */
+  tieKey: string;
 };
+
+function tieKeyForPlayer(
+  row: ShapedRow,
+  miniStats: Map<string, { miniMatchWins: number; miniFrameDiff: number }>,
+  maxBreakByPlayer: Map<string, number>,
+): string {
+  const mini = miniStats.get(row.playerId) ?? { miniMatchWins: 0, miniFrameDiff: 0 };
+  const maxBreak = maxBreakByPlayer.get(row.playerId) ?? -Infinity;
+  return [
+    row.points,
+    row.frameDiff,
+    row.won,
+    mini.miniMatchWins,
+    mini.miniFrameDiff,
+    maxBreak,
+  ].join("|");
+}
 
 function applyCrossgunsTiebreak(
   rows: ShapedRow[],
   h2h: HeadToHeadRow[],
   maxBreakByPlayer: Map<string, number>,
 ): ShapedRow[] {
-  if (rows.length < 2) return rows;
+  if (rows.length < 2) {
+    return rows.map((r) => ({
+      ...r,
+      tieKey: tieKeyForPlayer(r, new Map(), maxBreakByPlayer),
+    }));
+  }
 
   // Primary sort: points, frame_diff, wins, then alphabetical as a stable anchor.
-  const sorted = [...rows].sort((a, b) => {
+  const sorted = rows.map((r) => ({ ...r, tieKey: "" }));
+  sorted.sort((a, b) => {
     if (b.points !== a.points) return b.points - a.points;
     if (b.frameDiff !== a.frameDiff) return b.frameDiff - a.frameDiff;
     if (b.won !== a.won) return b.won - a.won;
@@ -252,7 +277,9 @@ function applyCrossgunsTiebreak(
     }
     const group = sorted.slice(i, j);
     if (group.length === 1) {
-      result.push(group[0]);
+      const solo = group[0];
+      solo.tieKey = tieKeyForPlayer(solo, new Map(), maxBreakByPlayer);
+      result.push(solo);
       i = j;
       continue;
     }
@@ -279,16 +306,36 @@ function applyCrossgunsTiebreak(
       const sb = miniStats.get(b.playerId)!;
       if (sb.miniMatchWins !== sa.miniMatchWins) return sb.miniMatchWins - sa.miniMatchWins;
       if (sb.miniFrameDiff !== sa.miniFrameDiff) return sb.miniFrameDiff - sa.miniFrameDiff;
-      // Adjusted-break fallback.
       const ba = maxBreakByPlayer.get(a.playerId) ?? -Infinity;
       const bb = maxBreakByPlayer.get(b.playerId) ?? -Infinity;
       if (bb !== ba) return bb - ba;
       return a.playerName.localeCompare(b.playerName);
     });
+    for (const row of group) {
+      row.tieKey = tieKeyForPlayer(row, miniStats, maxBreakByPlayer);
+    }
     result.push(...group);
     i = j;
   }
   return result;
+}
+
+/** Joint rank only when the full tiebreak chain leaves players equal (legacy sortFn === 0). */
+function assignDisplayRanks(ordered: ShapedRow[]): number[] {
+  const ranks: number[] = [];
+  let lastRank = 0;
+  let lastKey = "";
+  ordered.forEach((row, idx) => {
+    if (idx > 0 && row.tieKey === lastKey) {
+      ranks.push(lastRank);
+    } else {
+      const rank = idx + 1;
+      lastRank = rank;
+      ranks.push(rank);
+    }
+    lastKey = row.tieKey;
+  });
+  return ranks;
 }
 
 // ---------- Action handlers ------------------------------------------------
@@ -453,7 +500,9 @@ async function handleGetStandings(req: Request): Promise<Response> {
       if (lid === lg.league_id) leagueBreaks.set(pid, val);
     }
     const ordered = applyCrossgunsTiebreak(shaped, leagueH2h, leagueBreaks);
-    const rows = ordered.map((r) => ({
+    const ranks = assignDisplayRanks(ordered);
+    const rows = ordered.map((r, idx) => ({
+      Rank: ranks[idx],
       "Player Name": r.playerName,
       P: r.played,
       W: r.won,
