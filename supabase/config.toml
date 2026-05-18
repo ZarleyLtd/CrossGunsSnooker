@@ -1,0 +1,4 @@
+project_id = "yzyipxvlsoxfphwobfkb"
+
+[functions.crossguns-api]
+verify_jwt = false
