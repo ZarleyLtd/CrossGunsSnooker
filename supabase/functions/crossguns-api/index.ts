@@ -559,7 +559,7 @@ async function handleGetTopBreaks(req: Request): Promise<Response> {
       ) h on true
      where f.season_id = ${seasonId}
        and (${leagueParam}::text is null or f.league_id = ${leagueParam})
-     order by (b.value + coalesce(h.handicap, 0)) desc,
+     order by (b.value + greatest(0, coalesce(h.handicap, 0))) desc,
               b.value desc,
               f.match_date asc nulls last,
               p.player_name asc
@@ -572,6 +572,7 @@ async function handleGetTopBreaks(req: Request): Promise<Response> {
       : r.player_a_name;
     const handicap = r.handicap == null ? 0 : Number(r.handicap);
     const value = Number(r.value);
+    const handicapBonus = Math.max(0, handicap);
     return {
       breakId: r.break_id,
       playerId: r.player_id,
@@ -579,8 +580,8 @@ async function handleGetTopBreaks(req: Request): Promise<Response> {
       "Player Name": r.player_name,
       "Break": value,
       "Handicap": handicap,
-      "Adjusted": value + handicap,
-      adjustedValue: value + handicap,
+      "Adjusted": value + handicapBonus,
+      adjustedValue: value + handicapBonus,
       "League": r.league_id,
       "Stage": r.stage,
       "Round": r.round_label,

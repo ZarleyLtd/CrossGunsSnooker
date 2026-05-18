@@ -1,3 +1,12 @@
 # Supabase CLI runtime state
 supabase/.temp/
 
+# Node
+node_modules/
+
+# Local environment
+.env
+.env.local
+
+# Migration script reports
+scripts/migration-reports/
