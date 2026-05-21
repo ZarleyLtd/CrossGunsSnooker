@@ -155,6 +155,7 @@ var ResultsPage = {
         div.setAttribute('data-player-a-name', match['Player A'] || '');
         div.setAttribute('data-player-b-name', match['Player B'] || '');
         div.setAttribute('data-match-date', match['Match Date'] || '');
+        div.setAttribute('data-had-result', '1');
 
         var sa = match.scoreA != null && match.scoreA !== '' ? Number(match.scoreA) : 0;
         var sb = match.scoreB != null && match.scoreB !== '' ? Number(match.scoreB) : 0;

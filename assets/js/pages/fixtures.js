@@ -17,7 +17,13 @@ var FixturesPage = {
   _loadedBreakIds: [],
   /** Per-frame winner for current dialog: index 0..2 → null | 'a' | 'b' */
   _matchFrameWinners: [],
+  /** True when dialog was opened for a fixture that already had a recorded result. */
+  _dialogOpenedWithResult: false,
   _resultDialogBindingsDone: false,
+  CLEAR_RESULT_CONFIRM_MSG:
+    'Remove this result from the database?\n\nFrames are 0–0, so the recorded score will be cleared and this fixture will show as having no result. Any breaks already saved for this match will be deleted.',
+  CLEAR_RESULT_INLINE_MSG:
+    'Frames are 0–0 — saving will remove this result from the database and delete any breaks already saved for this match.',
 
   adminModeEvent: function () {
     return typeof AdminMode !== 'undefined' ? AdminMode.EVENT_NAME : 'crossguns-admin-mode-changed';
@@ -87,7 +93,6 @@ var FixturesPage = {
     if (this._resultDialogBindingsDone) return;
     var dlg = document.getElementById('fixture-result-dialog');
     if (!dlg) return;
-    this._resultDialogBindingsDone = true;
 
     var self = this;
     self.ensureFrameRacksBuilt();
@@ -124,6 +129,42 @@ var FixturesPage = {
         }
       });
     });
+    this._resultDialogBindingsDone = true;
+  },
+
+  /** window.confirm() can render behind an open modal <dialog>; close first, then restore if cancelled. */
+  confirmClearingResult: function () {
+    var dlg = document.getElementById('fixture-result-dialog');
+    var dialogWasOpen = !!(dlg && dlg.open);
+    if (dialogWasOpen && typeof dlg.close === 'function') {
+      dlg.close();
+    }
+    var confirmed = window.confirm(this.CLEAR_RESULT_CONFIRM_MSG);
+    if (!confirmed && dialogWasOpen && dlg && typeof dlg.showModal === 'function') {
+      dlg.showModal();
+      var self = this;
+      window.setTimeout(function () {
+        self.focusResultDialogRoot();
+      }, 0);
+    }
+    return confirmed;
+  },
+
+  updateClearingResultWarning: function (scoreA, scoreB) {
+    var msg = document.getElementById('fixture-result-msg');
+    if (!msg) return;
+    if (this._dialogOpenedWithResult && scoreA === 0 && scoreB === 0) {
+      msg.textContent = this.CLEAR_RESULT_INLINE_MSG;
+      msg.hidden = false;
+      msg.classList.remove('msg--success');
+      msg.classList.add('msg--warning');
+      return;
+    }
+    if (msg.classList.contains('msg--warning') && !msg.classList.contains('msg--success')) {
+      msg.textContent = '';
+      msg.hidden = true;
+      msg.classList.remove('msg--warning');
+    }
   },
 
   createFrameRackSvg: function () {
@@ -279,6 +320,7 @@ var FixturesPage = {
         rack.setAttribute('aria-label', self.frameRackAriaLabel(idx, win, side));
       });
     });
+    this.updateClearingResultWarning(scoreA, scoreB);
   },
 
   frameRackAriaLabel: function (idx, win, side) {
@@ -511,12 +553,21 @@ var FixturesPage = {
     for (k = 0; k < this.FRAME_RACK_COUNT; k++) {
       this._matchFrameWinners[k] = null;
     }
+    this._dialogOpenedWithResult = false;
+    var hadResult = rowEl.getAttribute('data-had-result');
+    if (hadResult === '1' || hadResult === 'true') {
+      this._dialogOpenedWithResult = true;
+    }
+
     var preA = rowEl.getAttribute('data-prefill-score-a');
     var preB = rowEl.getAttribute('data-prefill-score-b');
     if (preA != null && preB != null && preA !== '' && preB !== '') {
       var na = parseInt(preA, 10);
       var nb = parseInt(preB, 10);
       if (!isNaN(na) && !isNaN(nb) && na >= 0 && nb >= 0) {
+        if (na > 0 || nb > 0) {
+          this._dialogOpenedWithResult = true;
+        }
         this.applyCanonicalFrameAssignment(na, nb);
       }
     }
@@ -591,11 +642,16 @@ var FixturesPage = {
     }
 
     var clearing = scoreA === 0 && scoreB === 0;
-    if (clearing) {
-      var confirmed = window.confirm(
-        'Remove this result from the database?\n\nFrames are 0–0, so the recorded score will be cleared and this fixture will show as having no result. Any breaks already saved for this match will be deleted.'
-      );
-      if (!confirmed) return;
+    if (clearing && this._dialogOpenedWithResult) {
+      if (!this.confirmClearingResult()) return;
+    } else if (clearing) {
+      if (msg) {
+        msg.textContent = 'There must be a winner!';
+        msg.hidden = false;
+        msg.classList.remove('msg--success');
+        msg.classList.add('msg--warning');
+      }
+      return;
     }
 
     if (!clearing && scoreA < 2 && scoreB < 2) {
