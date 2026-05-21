@@ -66,7 +66,7 @@ var AdminMode = {
     dlg.innerHTML =
       '<form class="admin-unlock-dialog__form">' +
       '<h2 id="admin-unlock-title" class="admin-unlock-dialog__title">Unlock Admin Mode</h2>' +
-      '<p><label for="admin-unlock-secret">Secret</label></p>' +
+      '<p><label for="admin-unlock-secret">Password</label></p>' +
       '<p><input type="password" id="admin-unlock-secret" autocomplete="current-password" required class="admin-unlock-dialog__input" /></p>' +
       '<p id="admin-unlock-msg" class="admin-unlock-dialog__msg" hidden></p>' +
       '<p class="admin-unlock-dialog__actions">' +
