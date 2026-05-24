@@ -1,9 +1,4 @@
 // Leagues Page - 3-group League Standings (Group 1 / Group 2 / Group 3)
-// Renders the API response in the same monospaced format used by the legacy
-// CrossGuns Publii page (containers league-a / league-b / league-c).
-// The Edge Function already returns rows ordered by the full CrossGuns
-// tiebreak chain (Pts -> +/- -> W -> H2H -> max adjusted break), so this
-// module just lays the rows out; it does not sort.
 
 const LeaguesPage = {
   CONTAINERS: { '1': 'league-a', '2': 'league-b', '3': 'league-c' },
@@ -14,8 +9,32 @@ const LeaguesPage = {
     });
     if (targets.length === 0) return;
 
+    const self = this;
+
+    window.addEventListener(CurrentCompetition.EVENT_NAME, function () {
+      if (CurrentCompetition.isKnockout()) {
+        window.location.replace('knockout.html' + (window.location.search || ''));
+        return;
+      }
+      self.loadStandings().catch(function (e) {
+        console.error(e);
+      });
+    });
+
+    await CurrentCompetition.whenReady(function () {
+      if (CurrentCompetition.isKnockout()) {
+        window.location.replace('knockout.html' + (window.location.search || ''));
+        return;
+      }
+      return self.loadStandings();
+    });
+  },
+
+  loadStandings: async function () {
     try {
-      const result = await ApiClient.get({ action: 'getStandings' });
+      const result = await ApiClient.get(
+        Object.assign({ action: 'getStandings' }, CurrentCompetition.apiParams())
+      );
       const leagues = (result && result.leagues) || [];
       const byId = {};
       leagues.forEach(function (lg) { byId[String(lg.leagueId)] = lg; });
@@ -32,5 +51,5 @@ const LeaguesPage = {
         if (el) el.textContent = 'Error loading standings.';
       });
     }
-  }
+  },
 };

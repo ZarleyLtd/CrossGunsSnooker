@@ -4,10 +4,23 @@
 document.addEventListener('DOMContentLoaded', function() {
   // Initialize image loading
   ImageLoader.init();
+
+  // Shared current-competition context (public pages)
+  if (typeof CurrentCompetition !== 'undefined') {
+    CurrentCompetition.init().catch(function (err) {
+      console.error('CurrentCompetition init failed:', err);
+    });
+  }
+  if (typeof NavCompetition !== 'undefined') {
+    NavCompetition.init();
+  }
   
   // Admin pages (require Admin Mode for actions)
   if (document.getElementById('adminFixturesRoot') && typeof AdminFixturesPage !== 'undefined') {
     AdminFixturesPage.init();
+  }
+  if (document.getElementById('adminBulkFixturesRoot') && typeof AdminBulkFixturesPage !== 'undefined') {
+    AdminBulkFixturesPage.init();
   }
   if (document.getElementById('adminPlayersRoot') && typeof AdminPlayersPage !== 'undefined') {
     AdminPlayersPage.init();
@@ -16,10 +29,8 @@ document.addEventListener('DOMContentLoaded', function() {
     AdminLeagueSeasonsPage.init();
   }
 
-  // Home page - 3 league leaders (Group 1 / Group 2 / Group 3)
-  if (document.getElementById('g1-leader') ||
-      document.getElementById('g2-leader') ||
-      document.getElementById('g3-leader')) {
+  // Home page — swipeable competition cards
+  if (document.getElementById('home-carousel') && typeof IndexPage !== 'undefined') {
     IndexPage.init();
   }
 
@@ -38,6 +49,11 @@ document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('league-b') ||
       document.getElementById('league-c')) {
     LeaguesPage.init();
+  }
+
+  // Knockout bracket page
+  if (document.getElementById('knockout-bracket') && typeof KnockoutPage !== 'undefined') {
+    KnockoutPage.init();
   }
 
   // Handicaps page

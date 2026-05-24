@@ -28,11 +28,15 @@
     <script src="assets/js/config/app-config.js"></script>
     <!-- Utilities -->
     <script src="assets/js/utils/api-client.js"></script>
+    <script src="assets/js/utils/current-competition.js"></script>
+    <script src="assets/js/utils/nav-competition.js"></script>
     <script src="assets/js/utils/admin-mode.js"></script>
     <script src="assets/js/utils/formatters.js"></script>
     <script src="assets/js/utils/image-loader.js"></script>
     <!-- Components -->
     <script src="assets/js/components/league-standings.js"></script>
+    <script src="assets/js/utils/knockout-rounds.js"></script>
+    <script src="assets/js/components/knockout-renderer.js"></script>
     <!-- Page modules -->
     <script src="assets/js/pages/index.js"></script>
     <script src="assets/js/pages/fixtures.js"></script>
@@ -46,8 +50,7 @@
     <style>
       .home-leader-group { margin-bottom: 2.25rem; }
       .home-leader-group:last-of-type { margin-bottom: 0; }
-    </style>
-  </head>
+    </style>  </head>
   <body class="page-template">
     <header class="top js-header">
       <a class="logo" href="index.html">
@@ -61,7 +64,7 @@
         </button>
         <ul class="navbar__menu">
           <li class="active"><a href="index.html" target="_self">Home</a></li>
-          <li><a href="leagues.html" target="_self">Leagues</a></li>
+          <li class="nav-item-standings"><a href="leagues.html" target="_self" class="nav-standings-link">Leagues</a></li>
           <li><a href="fixtures.html" target="_self">Fixtures</a></li>
           <li><a href="results.html" target="_self">Results</a></li>
           <li><a href="top-breaks.html" target="_self">Top Breaks</a></li>
@@ -72,6 +75,9 @@
           </li>
           <li class="nav-admin-only" hidden aria-hidden="true">
             <a href="admin-fixtures.html" target="_self">Manage Fixtures</a>
+          </li>
+          <li class="nav-admin-only" hidden aria-hidden="true">
+            <a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a>
           </li>
           <li class="nav-admin-only" hidden aria-hidden="true">
             <a href="admin-players.html" target="_self">Manage Players</a>
@@ -97,22 +103,21 @@
           </figure>
         </div>
         <div class="entry-wrapper content__entry">
-          <section class="hero hero--image">
-            <h2 class="align-center"><span style="color: #169179;">Spring League '26</span></h2>
-            <p class="align-center">League stage &mdash; current leaders</p>
-            <div class="home-leader-group">
-              <h3 class="align-center"><span style="color: #169179;">Group 1</span></h3>
-              <h3 class="align-center"><span id="g1-leader" style="color: #fff; font-size: 1.2em;">&mdash;</span></h3>
+          <div id="home-carousel" class="home-carousel" aria-label="Current competitions">
+            <button type="button" class="home-carousel__arrow home-carousel__arrow--prev" id="home-carousel-prev" aria-label="Previous competition" hidden>
+              <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 6L8 12L14 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="home-carousel__viewport" id="home-carousel-viewport">
+              <div id="home-carousel-track" class="home-carousel__track">
+                <p class="align-center"><em>Loading competitions…</em></p>
+              </div>
             </div>
-            <div class="home-leader-group">
-              <h3 class="align-center"><span style="color: #169179;">Group 2</span></h3>
-              <h3 class="align-center"><span id="g2-leader" style="color: #fff; font-size: 1.2em;">&mdash;</span></h3>
-            </div>
-            <div class="home-leader-group">
-              <h3 class="align-center"><span style="color: #169179;">Group 3</span></h3>
-              <h3 class="align-center"><span id="g3-leader" style="color: #fff; font-size: 1.2em;">&mdash;</span></h3>
-            </div>
-          </section>
+            <button type="button" class="home-carousel__arrow home-carousel__arrow--next" id="home-carousel-next" aria-label="Next competition" hidden>
+              <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6L16 12L10 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div id="home-carousel-dots" class="home-carousel__dots" aria-hidden="true"></div>
+            <p class="home-carousel__hint align-center">Swipe or use arrows to change competition</p>
+          </div>
         </div>
       </article>
     </main>
@@ -120,7 +125,7 @@
       <div class="wrapper">
         <nav class="footer__nav">
           <ul>
-            <li><a href="leagues.html" class="al" target="_self">Leagues</a></li>
+            <li><a href="leagues.html" class="al footer-standings-link" target="_self">Leagues</a></li>
             <li><a href="fixtures.html" class="al" target="_self">Fixtures</a></li>
             <li><a href="results.html" class="al" target="_self">Results</a></li>
           </ul>

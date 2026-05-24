@@ -65,6 +65,12 @@ var ResultsPage = {
         });
       });
 
+      window.addEventListener(CurrentCompetition.EVENT_NAME, function () {
+        self.loadResults().catch(function (e) {
+          console.error(e);
+        });
+      });
+
       if (typeof FixturesPage !== 'undefined' && FixturesPage.RESULT_SAVED_EVENT) {
         window.addEventListener(FixturesPage.RESULT_SAVED_EVENT, function () {
           self.init().catch(function (e) {
@@ -80,8 +86,20 @@ var ResultsPage = {
       FixturesPage.bindResultDialog();
     }
 
+    await CurrentCompetition.whenReady(function () {
+      return self.loadResults();
+    });
+  },
+
+  loadResults: async function () {
+    var container = document.getElementById('results-list');
+    if (!container) return;
+    var self = this;
+
     try {
-      var result = await ApiClient.get({ action: 'getFixtures' });
+      var result = await ApiClient.get(
+        Object.assign({ action: 'getFixtures' }, CurrentCompetition.apiParams())
+      );
       var data = result.fixtures || [];
 
       var league = this.selectedLeague();

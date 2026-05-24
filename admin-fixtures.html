@@ -18,8 +18,7 @@
     <script src="assets/js/utils/admin-mode.js"></script>
     <script src="assets/js/utils/formatters.js"></script>
     <script src="assets/js/utils/image-loader.js"></script>
-    <script src="assets/js/utils/player-slug.js"></script>
-    <script src="assets/js/utils/csv-parse.js"></script>
+    <script src="assets/js/utils/knockout-rounds.js"></script>
     <script defer src="assets/js/pages/admin-fixtures.js"></script>
     <script defer src="assets/js/main.js"></script>
   </head>
@@ -63,6 +62,9 @@
             <a href="admin-fixtures.html" target="_self">Manage Fixtures</a>
           </li>
           <li class="nav-admin-only" hidden aria-hidden="true">
+            <a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a>
+          </li>
+          <li class="nav-admin-only" hidden aria-hidden="true">
             <a href="admin-players.html" target="_self">Manage Players</a>
           </li>
           <li class="nav-admin-only" hidden aria-hidden="true">
@@ -99,67 +101,61 @@
               <label for="adminFxSeason">Season</label><br />
               <select id="adminFxSeason"></select>
             </p>
-            <p>
-              <label for="adminFxLeague">League</label><br />
-              <select id="adminFxLeague"></select>
+            <p class="align-center">
+              <button type="button" class="btn admin-fixtures-add-btn" id="adminFxAddBtn">+ Add Fixture</button>
             </p>
-            <h2 class="h3">Bulk CSV</h2>
-            <p class="align-left">
-              Columns: <code>GameWeekNumber</code>, <code>PlayerA</code>, <code>PlayerB</code> (comma or tab). Optional header
-              row starting with GameWeek. Unknown names create a player and add them to this season and league.
-            </p>
-            <p>
-              <textarea id="adminFxCsv" rows="8" cols="60" style="width: 100%; max-width: 40rem" placeholder="1,Alice Smith,Bob Jones"></textarea>
-            </p>
-            <p>
-              <button type="button" class="btn" id="adminFxBulkRun">Import rows</button>
-            </p>
-            <pre id="adminFxLog" class="admin-log" style="max-height: 12rem; overflow: auto"></pre>
+            <div id="adminFxList" class="admin-fixtures-list"></div>
 
-            <h2 class="h3">Add / edit fixture</h2>
-            <datalist id="adminFxPlayersDatalist"></datalist>
-            <form id="adminFxForm" class="admin-form-grid">
-              <input type="hidden" id="adminFxFixtureId" />
-              <p>
-                <label for="adminFxRound">Round / game week</label><br />
-                <input type="text" id="adminFxRound" required />
-              </p>
-              <p>
-                <label for="adminFxPa">Player A</label><br />
-                <input type="text" id="adminFxPa" list="adminFxPlayersDatalist" required />
-              </p>
-              <p>
-                <label for="adminFxPb">Player B</label><br />
-                <input type="text" id="adminFxPb" list="adminFxPlayersDatalist" required />
-              </p>
-              <p>
-                <label for="adminFxMd">Match date (optional)</label><br />
-                <input type="date" id="adminFxMd" />
-              </p>
-              <p>
-                <label for="adminFxSo">Sort order</label><br />
-                <input type="number" id="adminFxSo" value="0" />
-              </p>
-              <p>
-                <button type="submit" class="btn">Save fixture</button>
-                <button type="button" class="btn" id="adminFxFormClear">Clear</button>
-              </p>
-            </form>
-
-            <h2 class="h3">League fixtures (this season / league)</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Week</th>
-                  <th>Player A</th>
-                  <th>Player B</th>
-                  <th>Date</th>
-                  <th>Sort</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="adminFxTbody"></tbody>
-            </table>
+            <dialog id="admin-fixture-dialog" class="admin-fixture-dialog" aria-labelledby="admin-fixture-dialog-title">
+              <form id="adminFxDialogForm">
+                <h2 id="admin-fixture-dialog-title" class="admin-fixture-dialog__title">Add / edit fixture</h2>
+                <input type="hidden" id="adminFxFixtureId" />
+                <p>
+                  <label for="adminFxStage">Stage</label><br />
+                  <select id="adminFxStage" required>
+                    <option value="league">League</option>
+                    <option value="knockout">Knockout</option>
+                  </select>
+                </p>
+                <div id="adminFxLeagueFields">
+                  <div class="admin-fixture-dialog__group-week">
+                    <p class="admin-fixture-dialog__field admin-fixture-dialog__field--group">
+                      <label for="adminFxLeague">Group</label><br />
+                      <select id="adminFxLeague"></select>
+                    </p>
+                    <p class="admin-fixture-dialog__field admin-fixture-dialog__field--week">
+                      <label for="adminFxWeek">Week</label><br />
+                      <input type="number" id="adminFxWeek" min="1" step="1" />
+                    </p>
+                  </div>
+                </div>
+                <div id="adminFxKoFields" hidden>
+                  <p>
+                    <label for="adminFxRound">Round</label><br />
+                    <select id="adminFxRound"></select>
+                  </p>
+                  <p>
+                    <label for="adminFxRoundCustom">Custom round code</label><br />
+                    <input type="text" id="adminFxRoundCustom" hidden placeholder="e.g. PO5" />
+                  </p>
+                </div>
+                <div class="admin-fixture-dialog__players">
+                  <p class="admin-fixture-dialog__player-row">
+                    <select id="adminFxPa" required aria-label="Player A"></select>
+                  </p>
+                  <p class="admin-fixture-dialog__vs-row" aria-hidden="true">V</p>
+                  <p class="admin-fixture-dialog__player-row">
+                    <select id="adminFxPb" required aria-label="Player B"></select>
+                  </p>
+                </div>
+                <p id="adminFxDialogMsg" class="msg" hidden></p>
+                <div class="admin-fixture-dialog__actions">
+                  <button type="submit" class="btn">Save</button>
+                  <button type="button" class="btn" id="adminFxCancelBtn">Cancel</button>
+                  <button type="button" class="btn admin-fixture-dialog__delete" id="adminFxDeleteBtn" hidden>Delete</button>
+                </div>
+              </form>
+            </dialog>
           </div>
         </div>
       </article>

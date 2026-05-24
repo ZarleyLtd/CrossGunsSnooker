@@ -35,6 +35,7 @@ var AdminLeagueSeasonsPage = (function () {
       this.el.sStart = document.getElementById('adminLsSeasonStart');
       this.el.sEnd = document.getElementById('adminLsSeasonEnd');
       this.el.sCur = document.getElementById('adminLsSeasonCurrent');
+      this.el.sType = document.getElementById('adminLsSeasonType');
       this.el.lForm = document.getElementById('adminLsLeagueForm');
       this.el.lId = document.getElementById('adminLsLeagueId');
       this.el.lName = document.getElementById('adminLsLeagueName');
@@ -102,7 +103,8 @@ var AdminLeagueSeasonsPage = (function () {
         var o = document.createElement('option');
         o.value = s.seasonId;
         o.textContent = s.name + ' (' + s.seasonId + ')';
-        if (s.isCurrent) cur = s.seasonId;
+        if (s.isCurrent && !cur) cur = s.seasonId;
+        if (s.isCurrent && s.competitionType === 'league') cur = s.seasonId;
         rs.appendChild(o);
       });
       if (cur && rs.querySelector('option[value="' + cur + '"]')) rs.value = cur;
@@ -146,6 +148,8 @@ var AdminLeagueSeasonsPage = (function () {
           esc(s.endsOn || '') +
           '</td><td>' +
           (s.isCurrent ? 'Yes' : 'No') +
+          '</td><td>' +
+          esc(s.competitionType || 'league') +
           '</td><td><button type="button" class="btn admin-ls-se">Edit</button> <button type="button" class="btn admin-ls-sd">Delete</button></td>';
         tr.querySelector('.admin-ls-se').addEventListener('click', function () {
           me.openSeason(s);
@@ -230,6 +234,9 @@ var AdminLeagueSeasonsPage = (function () {
       if (this.el.sStart) this.el.sStart.value = s.startsOn || '';
       if (this.el.sEnd) this.el.sEnd.value = s.endsOn || '';
       if (this.el.sCur) this.el.sCur.checked = !!s.isCurrent;
+      if (this.el.sType) {
+        this.el.sType.value = s.competitionType === 'knockout' ? 'knockout' : 'league';
+      }
     },
 
     clearSeasonForm: function () {
@@ -241,6 +248,7 @@ var AdminLeagueSeasonsPage = (function () {
       if (this.el.sStart) this.el.sStart.value = '';
       if (this.el.sEnd) this.el.sEnd.value = '';
       if (this.el.sCur) this.el.sCur.checked = false;
+      if (this.el.sType) this.el.sType.value = 'league';
     },
 
     saveSeason: function (e) {
@@ -256,6 +264,7 @@ var AdminLeagueSeasonsPage = (function () {
         seasonId: id,
         name: name,
         isCurrent: me.el.sCur ? me.el.sCur.checked : false,
+        competitionType: me.el.sType ? me.el.sType.value : 'league',
       };
       var a = me.el.sStart && me.el.sStart.value.trim();
       var b = me.el.sEnd && me.el.sEnd.value.trim();

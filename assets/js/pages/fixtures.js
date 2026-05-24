@@ -52,9 +52,17 @@ var FixturesPage = {
       });
     });
 
+    window.addEventListener(CurrentCompetition.EVENT_NAME, function () {
+      self.render().catch(function (e) {
+        console.error(e);
+      });
+    });
+
     this.bindLeagueFilter();
     this.bindResultDialog();
-    await this.render();
+    await CurrentCompetition.whenReady(function () {
+      return self.render();
+    });
   },
 
   bindLeagueFilter: function () {
@@ -346,7 +354,9 @@ var FixturesPage = {
     if (!container) return;
 
     try {
-      var result = await ApiClient.get({ action: 'getFixtures' });
+      var result = await ApiClient.get(
+        Object.assign({ action: 'getFixtures' }, CurrentCompetition.apiParams())
+      );
       var data = result.fixtures || [];
 
       var league = this.selectedLeague();

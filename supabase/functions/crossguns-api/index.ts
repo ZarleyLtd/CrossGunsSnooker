@@ -79,7 +79,14 @@ function db() {
 
 type PlayerRow = { player_id: string; player_name: string; active: boolean };
 type LeagueRow = { league_id: string; name: string; display_order: number };
-type SeasonRow = { season_id: string; name: string; starts_on: string | null; ends_on: string | null; is_current: boolean };
+type SeasonRow = {
+  season_id: string;
+  name: string;
+  starts_on: string | null;
+  ends_on: string | null;
+  is_current: boolean;
+  competition_type: "league" | "knockout";
+};
 type SeasonPlayerRow = { season_id: string; league_id: string; player_id: string };
 type FixtureRow = {
   fixture_id: string;
@@ -167,7 +174,7 @@ async function resolveSeasonId(requested: string | null): Promise<string> {
   const sql = db();
   if (requested) {
     const found = await sql<SeasonRow[]>`
-      select season_id, name, starts_on, ends_on, is_current
+      select season_id, name, starts_on, ends_on, is_current, competition_type
       from crossguns.seasons
       where season_id = ${requested}
     `;
@@ -175,9 +182,10 @@ async function resolveSeasonId(requested: string | null): Promise<string> {
     return (found[0] as unknown as SeasonRow).season_id;
   }
   const current = await sql<SeasonRow[]>`
-    select season_id, name, starts_on, ends_on, is_current
+    select season_id, name, starts_on, ends_on, is_current, competition_type
     from crossguns.seasons
     where is_current = true
+    order by competition_type asc, starts_on desc nulls last, season_id asc
     limit 1
   `;
   if (!current.length) throw new Error("No current season is set");
@@ -648,7 +656,8 @@ async function handleGetSeasons(): Promise<Response> {
     select season_id, name,
            to_char(starts_on, 'YYYY-MM-DD') as starts_on,
            to_char(ends_on, 'YYYY-MM-DD') as ends_on,
-           is_current
+           is_current,
+           competition_type
       from crossguns.seasons
       order by starts_on desc nulls last, season_id desc
   `;
@@ -660,6 +669,7 @@ async function handleGetSeasons(): Promise<Response> {
       startsOn: r.starts_on,
       endsOn: r.ends_on,
       isCurrent: r.is_current,
+      competitionType: r.competition_type,
     })),
   });
 }
@@ -932,27 +942,21 @@ async function handleUpsertSeason(data: Record<string, unknown>): Promise<Respon
   const startsOn = data.startsOn ? String(data.startsOn) : null;
   const endsOn = data.endsOn ? String(data.endsOn) : null;
   const isCurrent = Boolean(data.isCurrent);
+  const competitionTypeRaw = String(data.competitionType ?? "league").trim();
+  const competitionType = competitionTypeRaw === "knockout" ? "knockout" : "league";
 
   const sql = db();
-  await sql.begin(async (tx) => {
-    if (isCurrent) {
-      await tx`
-        update crossguns.seasons
-        set is_current = false, updated_at = now()
-        where season_id <> ${seasonId}
-      `;
-    }
-    await tx`
-      insert into crossguns.seasons (season_id, name, starts_on, ends_on, is_current)
-      values (${seasonId}, ${name}, ${startsOn}, ${endsOn}, ${isCurrent})
-      on conflict (season_id) do update set
-        name = excluded.name,
-        starts_on = excluded.starts_on,
-        ends_on = excluded.ends_on,
-        is_current = excluded.is_current,
-        updated_at = now()
-    `;
-  });
+  await sql`
+    insert into crossguns.seasons (season_id, name, starts_on, ends_on, is_current, competition_type)
+    values (${seasonId}, ${name}, ${startsOn}, ${endsOn}, ${isCurrent}, ${competitionType})
+    on conflict (season_id) do update set
+      name = excluded.name,
+      starts_on = excluded.starts_on,
+      ends_on = excluded.ends_on,
+      is_current = excluded.is_current,
+      competition_type = excluded.competition_type,
+      updated_at = now()
+  `;
   return jsonResponse({ success: true });
 }
 

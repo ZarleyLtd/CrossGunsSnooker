@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Manage League seasons - CrossGuns Snooker League</title>
+    <title>Bulk Load Fixtures - CrossGuns Snooker League</title>
     <link rel="stylesheet" href="assets/css/style.css" />
     <noscript
       ><style>
@@ -18,7 +18,9 @@
     <script src="assets/js/utils/admin-mode.js"></script>
     <script src="assets/js/utils/formatters.js"></script>
     <script src="assets/js/utils/image-loader.js"></script>
-    <script defer src="assets/js/pages/admin-league-seasons.js"></script>
+    <script src="assets/js/utils/player-slug.js"></script>
+    <script src="assets/js/utils/csv-parse.js"></script>
+    <script defer src="assets/js/pages/admin-bulk-fixtures.js"></script>
     <script defer src="assets/js/main.js"></script>
   </head>
   <body class="page-template">
@@ -76,7 +78,7 @@
       <article class="content">
         <div class="hero">
           <header class="hero__content hero__content--centered">
-            <div class="wrapper"><h1>Manage League seasons</h1></div>
+            <div class="wrapper"><h1>Bulk Load Fixtures</h1></div>
           </header>
           <figure class="hero__image">
             <div class="hero__image-wrapper">
@@ -90,120 +92,32 @@
             </div>
           </figure>
         </div>
-        <div class="entry-wrapper content__entry" id="adminLeagueSeasonsRoot">
-          <p id="adminLsGate" class="msg msg--info">
-            Unlock <strong>Admin Mode</strong> from the menu to edit seasons, leagues, and rosters.
+        <div class="entry-wrapper content__entry" id="adminBulkFixturesRoot">
+          <p id="adminBulkFxGate" class="msg msg--info">
+            Unlock <strong>Admin Mode</strong> from the menu to bulk import league fixtures.
           </p>
-          <div id="adminLsPanel" hidden>
-            <p id="adminLsMsg" class="msg" hidden></p>
-
-            <h2 class="h3">Seasons</h2>
-            <form id="adminLsSeasonForm">
-              <p>
-                <label for="adminLsSeasonId">Season id</label><br />
-                <input type="text" id="adminLsSeasonId" required />
-              </p>
-              <p>
-                <label for="adminLsSeasonName">Name</label><br />
-                <input type="text" id="adminLsSeasonName" required />
-              </p>
-              <p>
-                <label for="adminLsSeasonStart">Starts on</label><br />
-                <input type="date" id="adminLsSeasonStart" />
-              </p>
-              <p>
-                <label for="adminLsSeasonEnd">Ends on</label><br />
-                <input type="date" id="adminLsSeasonEnd" />
-              </p>
-              <p>
-                <label for="adminLsSeasonType">Competition type</label><br />
-                <select id="adminLsSeasonType">
-                  <option value="league">League</option>
-                  <option value="knockout">Knockout</option>
-                </select>
-              </p>
-              <p>
-                <label><input type="checkbox" id="adminLsSeasonCurrent" /> Current season</label>
-              </p>
-              <p>
-                <button type="submit" class="btn">Save season</button>
-                <button type="button" class="btn" id="adminLsSeasonClear">Clear</button>
-              </p>
-            </form>
-            <table>
-              <thead>
-                <tr>
-                  <th>Id</th>
-                  <th>Name</th>
-                  <th>Start</th>
-                  <th>End</th>
-                  <th>Current</th>
-                  <th>Type</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="adminLsSeasonsTbody"></tbody>
-            </table>
-
-            <h2 class="h3">Leagues</h2>
-            <form id="adminLsLeagueForm">
-              <p>
-                <label for="adminLsLeagueId">League id</label><br />
-                <input type="text" id="adminLsLeagueId" required />
-              </p>
-              <p>
-                <label for="adminLsLeagueName">Name</label><br />
-                <input type="text" id="adminLsLeagueName" required />
-              </p>
-              <p>
-                <label for="adminLsLeagueOrder">Display order</label><br />
-                <input type="number" id="adminLsLeagueOrder" value="0" />
-              </p>
-              <p>
-                <button type="submit" class="btn">Save league</button>
-                <button type="button" class="btn" id="adminLsLeagueClear">Clear</button>
-              </p>
-            </form>
-            <table>
-              <thead>
-                <tr>
-                  <th>Id</th>
-                  <th>Name</th>
-                  <th>Order</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="adminLsLeaguesTbody"></tbody>
-            </table>
-
-            <h2 class="h3">Season roster</h2>
+          <div id="adminBulkFxPanel" hidden>
+            <p id="adminBulkFxMsg" class="msg" hidden></p>
             <p>
-              <label for="adminLsRosterSeason">Season</label><br />
-              <select id="adminLsRosterSeason"></select>
+              <label for="adminBulkFxSeason">Season</label><br />
+              <select id="adminBulkFxSeason"></select>
             </p>
-            <form id="adminLsRosterAddForm">
-              <datalist id="adminLsPlayersDatalist"></datalist>
-              <p>
-                <label for="adminLsRosterPlayerId">Player id</label><br />
-                <input type="text" id="adminLsRosterPlayerId" list="adminLsPlayersDatalist" required />
-              </p>
-              <p>
-                <label for="adminLsRosterLeagueId">League</label><br />
-                <select id="adminLsRosterLeagueId"></select>
-              </p>
-              <p><button type="submit" class="btn">Add / update membership</button></p>
-            </form>
-            <table>
-              <thead>
-                <tr>
-                  <th>Player id</th>
-                  <th>Name</th>
-                  <th>League</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="adminLsRosterTbody"></tbody>
-            </table>
+            <p>
+              <label for="adminBulkFxLeague">League</label><br />
+              <select id="adminBulkFxLeague"></select>
+            </p>
+            <h2 class="h3">Bulk CSV</h2>
+            <p class="align-left">
+              Columns: <code>GameWeekNumber</code>, <code>PlayerA</code>, <code>PlayerB</code> (comma or tab). Optional header
+              row starting with GameWeek. Unknown names create a player and add them to this season and league.
+            </p>
+            <p>
+              <textarea id="adminBulkFxCsv" rows="8" cols="60" style="width: 100%; max-width: 40rem" placeholder="1,Alice Smith,Bob Jones"></textarea>
+            </p>
+            <p>
+              <button type="button" class="btn" id="adminBulkFxRun">Import rows</button>
+            </p>
+            <pre id="adminBulkFxLog" class="admin-log" style="max-height: 12rem; overflow: auto"></pre>
           </div>
         </div>
       </article>

@@ -11,10 +11,9 @@ const TopBreaksPage = {
   _breaks: [],
 
   fetchData: async function () {
-    const result = await ApiClient.get({
-      action: 'getTopBreaks',
-      limit: '500'
-    });
+    const result = await ApiClient.get(
+      Object.assign({ action: 'getTopBreaks', limit: '500' }, CurrentCompetition.apiParams())
+    );
     return Array.isArray(result.breaks) ? result.breaks : [];
   },
 
@@ -92,6 +91,20 @@ const TopBreaksPage = {
       });
     });
 
+    window.addEventListener(CurrentCompetition.EVENT_NAME, function () {
+      TopBreaksPage.reload().catch(function (e) {
+        console.error(e);
+      });
+    });
+
+    await CurrentCompetition.whenReady(function () {
+      return TopBreaksPage.reload();
+    });
+  },
+
+  reload: async function () {
+    const container = document.getElementById('breaks-output');
+    if (!container) return;
     try {
       this._breaks = await this.fetchData();
       this.render();
