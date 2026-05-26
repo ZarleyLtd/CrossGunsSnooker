@@ -13,6 +13,7 @@
 //   ?action=getPlayers    [&season=<id>] [&league=<id>]
 //   ?action=getTopBreaks  [&season=<id>] [&league=<id>] [&limit=<n>]
 //   ?action=getSeasons
+//   ?action=getSeasonGroups  &seasonId=<id>
 //   ?action=getLeagues
 //   ?action=getBreaksForFixture  &fixtureId=<uuid>
 //
@@ -25,7 +26,7 @@
 //   adminLogin (pin only), upsertPlayer, upsertSeasonPlayer, upsertHandicap,
 //   upsertSeason, upsertLeague, upsertFixture, updateFixtureResult,
 //   upsertBreak, deleteBreak, deleteFixture, deleteHandicap, deletePlayer,
-//   deleteSeason, deleteLeague
+//   deleteSeason, deleteLeague, upsertSeasonGroup
 //
 // Standings ordering = the full CrossGuns tiebreak chain:
 //   1. points desc
@@ -686,6 +687,162 @@ async function handleGetLeaguesPublic(): Promise<Response> {
   });
 }
 
+const KNOCKOUT_GROUP_ID = "ko";
+
+async function ensureKnockoutSeasonGroup(seasonId: string): Promise<void> {
+  const sql = db();
+  await sql`
+    insert into crossguns.season_groups (season_id, league_id, display_order)
+    values (${seasonId}, ${KNOCKOUT_GROUP_ID}, 0)
+    on conflict (season_id, league_id) do nothing
+  `;
+}
+
+/** Remove the internal knockout pool group when a season is no longer knockout. */
+async function removeKnockoutSeasonGroupIfSafe(seasonId: string): Promise<void> {
+  const sql = db();
+  const [fx, sp] = await Promise.all([
+    sql<{ ok: boolean }[]>`
+      select exists(
+        select 1 from crossguns.fixtures
+         where season_id = ${seasonId} and league_id = ${KNOCKOUT_GROUP_ID}
+      ) as ok
+    `,
+    sql<{ ok: boolean }[]>`
+      select exists(
+        select 1 from crossguns.season_players
+         where season_id = ${seasonId} and league_id = ${KNOCKOUT_GROUP_ID}
+      ) as ok
+    `,
+  ]);
+  if (Boolean((fx[0] as { ok: boolean }).ok) || Boolean((sp[0] as { ok: boolean }).ok)) {
+    return;
+  }
+  await sql`
+    delete from crossguns.season_groups
+     where season_id = ${seasonId} and league_id = ${KNOCKOUT_GROUP_ID}
+  `;
+}
+
+async function handleGetSeasonGroups(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const seasonId = String(url.searchParams.get("seasonId") ?? "").trim();
+  if (!seasonId) return errorResponse("seasonId required");
+  const sql = db();
+  const seasonRows = await sql<SeasonRow[]>`
+    select season_id, name, competition_type, is_current
+      from crossguns.seasons
+     where season_id = ${seasonId}
+  `;
+  if (!seasonRows.length) return errorResponse("Season not found", 404);
+  const season = seasonRows[0] as unknown as SeasonRow;
+  if (season.competition_type === "knockout") {
+    await ensureKnockoutSeasonGroup(seasonId);
+  }
+  const rows = await sql<{
+    league_id: string;
+    name: string;
+    display_order: number;
+    player_count: number;
+  }[]>`
+    select sg.league_id,
+           l.name,
+           sg.display_order,
+           coalesce(pc.cnt, 0)::int as player_count
+      from crossguns.season_groups sg
+      join crossguns.leagues l on l.league_id = sg.league_id
+      left join lateral (
+        select count(*)::int as cnt
+          from crossguns.season_players sp
+         where sp.season_id = sg.season_id
+           and sp.league_id = sg.league_id
+      ) pc on true
+     where sg.season_id = ${seasonId}
+       and (
+         ${season.competition_type} = 'knockout'
+         or sg.league_id <> ${KNOCKOUT_GROUP_ID}
+       )
+     order by sg.display_order asc, sg.league_id asc
+  `;
+  return jsonResponse({
+    success: true,
+    season: {
+      seasonId: season.season_id,
+      name: season.name,
+      competitionType: season.competition_type,
+      isCurrent: season.is_current,
+    },
+    groups: rows.map((r) => ({
+      leagueId: r.league_id,
+      name: r.name,
+      displayOrder: r.display_order,
+      playerCount: r.player_count,
+    })),
+  });
+}
+
+async function handleUpsertSeasonGroup(data: Record<string, unknown>): Promise<Response> {
+  const remove = Boolean(data.remove);
+  const seasonId = String(data.seasonId ?? "").trim();
+  const leagueId = String(data.leagueId ?? "").trim();
+  if (!seasonId || !leagueId) return errorResponse("seasonId and leagueId required");
+  const sql = db();
+
+  if (remove) {
+    const [fx, sp] = await Promise.all([
+      sql<{ ok: boolean }[]>`
+        select exists(
+          select 1 from crossguns.fixtures
+           where season_id = ${seasonId} and league_id = ${leagueId}
+        ) as ok
+      `,
+      sql<{ ok: boolean }[]>`
+        select exists(
+          select 1 from crossguns.season_players
+           where season_id = ${seasonId} and league_id = ${leagueId}
+        ) as ok
+      `,
+    ]);
+    if (Boolean((fx[0] as { ok: boolean }).ok) || Boolean((sp[0] as { ok: boolean }).ok)) {
+      return errorResponse(
+        "Cannot remove group: players or fixtures still reference it for this season.",
+        409,
+      );
+    }
+    await sql`
+      delete from crossguns.season_groups
+       where season_id = ${seasonId} and league_id = ${leagueId}
+    `;
+    return jsonResponse({ success: true });
+  }
+
+  const name = data.name ? String(data.name).trim() : "";
+  const displayOrderRaw = data.displayOrder;
+  const displayOrder = displayOrderRaw !== undefined && displayOrderRaw !== ""
+    ? Number(displayOrderRaw)
+    : 0;
+  if (!Number.isFinite(displayOrder)) return errorResponse("displayOrder must be a number");
+
+  if (name) {
+    await sql`
+      insert into crossguns.leagues (league_id, name, display_order)
+      values (${leagueId}, ${name}, ${Math.trunc(displayOrder)})
+      on conflict (league_id) do update set
+        name = excluded.name,
+        display_order = excluded.display_order,
+        updated_at = now()
+    `;
+  }
+
+  await sql`
+    insert into crossguns.season_groups (season_id, league_id, display_order)
+    values (${seasonId}, ${leagueId}, ${Math.trunc(displayOrder)})
+    on conflict (season_id, league_id) do update set
+      display_order = excluded.display_order
+  `;
+  return jsonResponse({ success: true });
+}
+
 async function handleGetBreaksForFixture(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const fixtureId = url.searchParams.get("fixtureId")?.trim();
@@ -734,6 +891,7 @@ const ADMIN_POST_ACTIONS = new Set([
   "deletePlayer",
   "deleteSeason",
   "deleteLeague",
+  "upsertSeasonGroup",
 ]);
 
 function getAdminSecret(): string {
@@ -893,6 +1051,15 @@ async function handleUpsertSeasonPlayer(data: Record<string, unknown>): Promise<
   }
   const leagueId = String(data.leagueId ?? "").trim();
   if (!leagueId) return errorResponse("leagueId required when not removing");
+  const [grp] = await sql<{ ok: boolean }[]>`
+    select exists(
+      select 1 from crossguns.season_groups
+       where season_id = ${seasonId} and league_id = ${leagueId}
+    ) as ok
+  `;
+  if (!Boolean((grp as { ok: boolean }).ok)) {
+    return errorResponse("That group is not part of this season. Add the group to the season first.");
+  }
   await sql`
     insert into crossguns.season_players (season_id, league_id, player_id, updated_at)
     values (${seasonId}, ${leagueId}, ${playerId}, now())
@@ -942,7 +1109,9 @@ async function handleUpsertSeason(data: Record<string, unknown>): Promise<Respon
   const startsOn = data.startsOn ? String(data.startsOn) : null;
   const endsOn = data.endsOn ? String(data.endsOn) : null;
   const isCurrent = Boolean(data.isCurrent);
-  const competitionTypeRaw = String(data.competitionType ?? "league").trim();
+  const competitionTypeRaw = String(
+    data.competitionType ?? data.competition_type ?? "league",
+  ).trim();
   const competitionType = competitionTypeRaw === "knockout" ? "knockout" : "league";
 
   const sql = db();
@@ -957,6 +1126,11 @@ async function handleUpsertSeason(data: Record<string, unknown>): Promise<Respon
       competition_type = excluded.competition_type,
       updated_at = now()
   `;
+  if (competitionType === "knockout") {
+    await ensureKnockoutSeasonGroup(seasonId);
+  } else {
+    await removeKnockoutSeasonGroupIfSafe(seasonId);
+  }
   return jsonResponse({ success: true });
 }
 
@@ -1189,14 +1363,27 @@ async function handleDeleteSeason(data: Record<string, unknown>): Promise<Respon
   const seasonId = String(data.seasonId ?? "").trim();
   if (!seasonId) return errorResponse("seasonId required");
   const sql = db();
-  const [row] = await sql<{ ok: boolean }[]>`
-    select exists(
-      select 1 from crossguns.fixtures where season_id = ${seasonId}
-    ) as ok
-  `;
-  if (Boolean((row as { ok: boolean }).ok)) {
+  const [fx, sp] = await Promise.all([
+    sql<{ ok: boolean }[]>`
+      select exists(
+        select 1 from crossguns.fixtures where season_id = ${seasonId}
+      ) as ok
+    `,
+    sql<{ ok: boolean }[]>`
+      select exists(
+        select 1 from crossguns.season_players where season_id = ${seasonId}
+      ) as ok
+    `,
+  ]);
+  if (Boolean((fx[0] as { ok: boolean }).ok)) {
     return errorResponse(
       "Cannot delete season: fixtures still exist for this season. Delete or move those fixtures first.",
+      409,
+    );
+  }
+  if (Boolean((sp[0] as { ok: boolean }).ok)) {
+    return errorResponse(
+      "Cannot delete season: players are still on the roster. Remove roster entries first.",
       409,
     );
   }
@@ -1256,6 +1443,7 @@ async function dispatchPost(envelope: PostEnvelope): Promise<Response> {
     case "deletePlayer":       return handleDeletePlayer(envelope.data);
     case "deleteSeason":       return handleDeleteSeason(envelope.data);
     case "deleteLeague":       return handleDeleteLeague(envelope.data);
+    case "upsertSeasonGroup":  return handleUpsertSeasonGroup(envelope.data);
     default: return errorResponse(`Unknown action: ${envelope.action}`, 400);
   }
 }
@@ -1287,6 +1475,7 @@ Deno.serve(async (req: Request) => {
       case "getPlayers":          return await handleGetPlayers(req);
       case "getTopBreaks":        return await handleGetTopBreaks(req);
       case "getSeasons":          return await handleGetSeasons();
+      case "getSeasonGroups":     return await handleGetSeasonGroups(req);
       case "getLeagues":          return await handleGetLeaguesPublic();
       case "getBreaksForFixture": return await handleGetBreaksForFixture(req);
       default: return errorResponse(`Unknown action: ${action}`, 400);

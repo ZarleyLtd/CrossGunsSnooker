@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Manage Fixtures - CrossGuns Snooker League</title>
     <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/admin-panel.css" />
     <noscript
       ><style>
         img[loading] {
@@ -68,7 +69,7 @@
             <a href="admin-players.html" target="_self">Manage Players</a>
           </li>
           <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-league-seasons.html" target="_self">Manage League seasons</a>
+            <a href="admin-league-seasons.html" target="_self">Manage League Seasons</a>
           </li>
         </ul>
       </nav>
@@ -97,13 +98,13 @@
           </p>
           <div id="adminFixturesPanel" hidden>
             <p id="adminFxMsg" class="msg" hidden></p>
-            <p>
-              <label for="adminFxSeason">Season</label><br />
-              <select id="adminFxSeason"></select>
-            </p>
-            <p class="align-center">
+            <div class="admin-fixtures-toolbar">
+              <div class="admin-fixtures-toolbar__season">
+                <label for="adminFxSeason">Season</label>
+                <select id="adminFxSeason"></select>
+              </div>
               <button type="button" class="btn admin-fixtures-add-btn" id="adminFxAddBtn">+ Add Fixture</button>
-            </p>
+            </div>
             <div id="adminFxList" class="admin-fixtures-list"></div>
 
             <dialog id="admin-fixture-dialog" class="admin-fixture-dialog" aria-labelledby="admin-fixture-dialog-title">

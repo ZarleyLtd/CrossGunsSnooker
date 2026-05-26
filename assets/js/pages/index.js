@@ -133,6 +133,7 @@ const IndexPage = {
 
     if (!seasons.length) {
       track.innerHTML = '<p class="align-center"><em>No current competitions.</em></p>';
+      IndexPage.updateCarouselHint(0);
       return;
     }
 
@@ -163,8 +164,15 @@ const IndexPage = {
       return s.seasonId === selectedId;
     });
     IndexPage._carouselIndex = startIdx >= 0 ? startIdx : 0;
+    IndexPage.updateCarouselHint(seasons.length);
     IndexPage.bindCarouselControls();
     IndexPage.updateCarouselPosition(false);
+  },
+
+  updateCarouselHint: function (seasonCount) {
+    var hint = document.querySelector('.home-carousel__hint');
+    if (!hint) return;
+    hint.hidden = seasonCount <= 1;
   },
 
   bindCarouselControls: function () {

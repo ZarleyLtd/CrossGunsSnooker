@@ -4,8 +4,9 @@
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Manage League seasons - CrossGuns Snooker League</title>
+    <title>Manage League Seasons - CrossGuns Snooker League</title>
     <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/admin-panel.css" />
     <noscript
       ><style>
         img[loading] {
@@ -33,42 +34,18 @@
           </span>
         </button>
         <ul class="navbar__menu">
-          <li>
-            <a href="index.html" target="_self">Home</a>
-          </li>
-          <li>
-            <a href="leagues.html" target="_self">Leagues</a>
-          </li>
-          <li>
-            <a href="fixtures.html" target="_self">Fixtures</a>
-          </li>
-          <li>
-            <a href="results.html" target="_self">Results</a>
-          </li>
-          <li>
-            <a href="top-breaks.html" target="_self">Top Breaks</a>
-          </li>
-          <li>
-            <a href="handicaps.html" target="_self">Handicaps</a>
-          </li>
-          <li>
-            <a href="rules.html" target="_self">Rules</a>
-          </li>
-          <li>
-            <button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button>
-          </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-fixtures.html" target="_self">Manage Fixtures</a>
-          </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a>
-          </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-players.html" target="_self">Manage Players</a>
-          </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-league-seasons.html" target="_self">Manage League seasons</a>
-          </li>
+          <li><a href="index.html" target="_self">Home</a></li>
+          <li><a href="leagues.html" target="_self">Leagues</a></li>
+          <li><a href="fixtures.html" target="_self">Fixtures</a></li>
+          <li><a href="results.html" target="_self">Results</a></li>
+          <li><a href="top-breaks.html" target="_self">Top Breaks</a></li>
+          <li><a href="handicaps.html" target="_self">Handicaps</a></li>
+          <li><a href="rules.html" target="_self">Rules</a></li>
+          <li><button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-league-seasons.html" target="_self">Manage League Seasons</a></li>
         </ul>
       </nav>
     </header>
@@ -76,174 +53,149 @@
       <article class="content">
         <div class="hero">
           <header class="hero__content hero__content--centered">
-            <div class="wrapper"><h1>Manage League seasons</h1></div>
+            <div class="wrapper"><h1>Manage League Seasons</h1></div>
           </header>
           <figure class="hero__image">
             <div class="hero__image-wrapper">
-              <img
-                src="assets/images/crossguns-hero.png"
-                loading="eager"
-                height="529"
-                width="1456"
-                alt="Snooker table"
-              />
+              <img src="assets/images/crossguns-hero.png" loading="eager" height="529" width="1456" alt="Snooker table" />
             </div>
           </figure>
         </div>
         <div class="entry-wrapper content__entry" id="adminLeagueSeasonsRoot">
           <p id="adminLsGate" class="msg msg--info">
-            Unlock <strong>Admin Mode</strong> from the menu to edit seasons, leagues, and rosters.
+            Unlock <strong>Admin Mode</strong> from the menu to manage seasons, groups, and rosters.
           </p>
-          <div id="adminLsPanel" hidden>
+          <div id="adminLsPanel" class="admin-container" hidden>
             <p id="adminLsMsg" class="msg" hidden></p>
-
-            <h2 class="h3">Seasons</h2>
-            <form id="adminLsSeasonForm">
-              <p>
-                <label for="adminLsSeasonId">Season id</label><br />
-                <input type="text" id="adminLsSeasonId" required />
-              </p>
-              <p>
-                <label for="adminLsSeasonName">Name</label><br />
-                <input type="text" id="adminLsSeasonName" required />
-              </p>
-              <p>
-                <label for="adminLsSeasonStart">Starts on</label><br />
-                <input type="date" id="adminLsSeasonStart" />
-              </p>
-              <p>
-                <label for="adminLsSeasonEnd">Ends on</label><br />
-                <input type="date" id="adminLsSeasonEnd" />
-              </p>
-              <p>
-                <label for="adminLsSeasonType">Competition type</label><br />
-                <select id="adminLsSeasonType">
-                  <option value="league">League</option>
-                  <option value="knockout">Knockout</option>
-                </select>
-              </p>
-              <p>
-                <label><input type="checkbox" id="adminLsSeasonCurrent" /> Current season</label>
-              </p>
-              <p>
-                <button type="submit" class="btn">Save season</button>
-                <button type="button" class="btn" id="adminLsSeasonClear">Clear</button>
-              </p>
-            </form>
-            <table>
-              <thead>
-                <tr>
-                  <th>Id</th>
-                  <th>Name</th>
-                  <th>Start</th>
-                  <th>End</th>
-                  <th>Current</th>
-                  <th>Type</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="adminLsSeasonsTbody"></tbody>
-            </table>
-
-            <h2 class="h3">Leagues</h2>
-            <form id="adminLsLeagueForm">
-              <p>
-                <label for="adminLsLeagueId">League id</label><br />
-                <input type="text" id="adminLsLeagueId" required />
-              </p>
-              <p>
-                <label for="adminLsLeagueName">Name</label><br />
-                <input type="text" id="adminLsLeagueName" required />
-              </p>
-              <p>
-                <label for="adminLsLeagueOrder">Display order</label><br />
-                <input type="number" id="adminLsLeagueOrder" value="0" />
-              </p>
-              <p>
-                <button type="submit" class="btn">Save league</button>
-                <button type="button" class="btn" id="adminLsLeagueClear">Clear</button>
-              </p>
-            </form>
-            <table>
-              <thead>
-                <tr>
-                  <th>Id</th>
-                  <th>Name</th>
-                  <th>Order</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="adminLsLeaguesTbody"></tbody>
-            </table>
-
-            <h2 class="h3">Season roster</h2>
-            <p>
-              <label for="adminLsRosterSeason">Season</label><br />
-              <select id="adminLsRosterSeason"></select>
-            </p>
-            <form id="adminLsRosterAddForm">
-              <datalist id="adminLsPlayersDatalist"></datalist>
-              <p>
-                <label for="adminLsRosterPlayerId">Player id</label><br />
-                <input type="text" id="adminLsRosterPlayerId" list="adminLsPlayersDatalist" required />
-              </p>
-              <p>
-                <label for="adminLsRosterLeagueId">League</label><br />
-                <select id="adminLsRosterLeagueId"></select>
-              </p>
-              <p><button type="submit" class="btn">Add / update membership</button></p>
-            </form>
-            <table>
-              <thead>
-                <tr>
-                  <th>Player id</th>
-                  <th>Name</th>
-                  <th>League</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="adminLsRosterTbody"></tbody>
-            </table>
+            <div class="admin-toolbar">
+              <button type="button" class="btn" id="adminLsAddBtn">+ Add Season</button>
+            </div>
+            <div id="adminLsList" class="admin-player-picks admin-item-list">
+              <p class="admin-player-picks__hint"><em>Loading seasons…</em></p>
+            </div>
           </div>
         </div>
       </article>
     </main>
+
+    <div id="adminLsSeasonModal" class="admin-modal admin-modal--dark admin-modal--season" role="dialog" aria-modal="true" aria-labelledby="adminLsModalTitle" hidden>
+      <div class="admin-modal__dialog admin-modal__dialog--wide">
+        <div class="admin-modal__header">
+          <h2 id="adminLsModalTitle">Add Season</h2>
+          <button type="button" class="admin-modal__close" id="adminLsModalClose" aria-label="Close">&times;</button>
+        </div>
+        <form id="adminLsSeasonForm">
+          <div class="admin-form-group">
+            <label for="adminLsSeasonId">Season id</label>
+            <input type="text" id="adminLsSeasonId" required pattern="[a-z0-9-]+" title="Lowercase letters, numbers, and hyphens only" />
+            <small>e.g. spring-26, winter25-knockout</small>
+          </div>
+          <div class="admin-form-group">
+            <label for="adminLsSeasonName">Name</label>
+            <input type="text" id="adminLsSeasonName" required />
+          </div>
+          <div class="admin-form-row admin-form-row--type-current">
+            <div class="admin-form-row__field admin-form-row__field--type">
+              <label for="adminLsSeasonType">Type</label>
+              <select id="adminLsSeasonType">
+                <option value="league">League</option>
+                <option value="knockout">Knockout</option>
+              </select>
+            </div>
+            <div class="admin-form-group--checkbox admin-form-group--checkbox-inline">
+              <label for="adminLsSeasonCurrent">Current</label>
+              <input type="checkbox" id="adminLsSeasonCurrent" />
+            </div>
+          </div>
+
+          <div id="adminLsManageSection" class="admin-ls-manage" hidden>
+            <div id="adminLsLeagueSection" class="admin-ls-league">
+              <div class="admin-section-header">
+                <h3 class="admin-ls-manage__heading">Groups</h3>
+                <button type="button" class="btn" id="adminLsAddGroup">+ Add Group</button>
+              </div>
+              <p class="admin-player-picks__hint">Each group needs at least two players. A player can only belong to one group.</p>
+              <div id="adminLsGroupsList" class="admin-player-picks admin-item-list"></div>
+            </div>
+            <div id="adminLsKnockoutSection" class="admin-ls-knockout">
+              <h3 class="admin-ls-manage__heading">Players</h3>
+              <p class="admin-player-picks__hint">Tick players for this knockout season (saved with Save Season).</p>
+              <div id="adminLsKnockoutPlayers" class="admin-player-picks admin-player-picks--inline"></div>
+            </div>
+          </div>
+          <p id="adminLsSaveFirstHint" class="admin-player-picks__hint">Save the season first to add groups or players.</p>
+
+          <div class="admin-form-actions">
+            <div class="admin-form-actions__left">
+              <button type="button" class="btn btn-danger" id="adminLsSeasonDelete" hidden>Delete</button>
+            </div>
+            <div class="admin-form-actions__right">
+              <button type="button" class="btn btn-secondary" id="adminLsModalCancel">Cancel</button>
+              <button type="submit" class="btn btn-save" id="adminLsSeasonSave">Save Season</button>
+            </div>
+          </div>
+          <p id="adminLsSeasonModalMsg" class="msg admin-modal__msg admin-modal__msg--below-actions" hidden></p>
+        </form>
+      </div>
+    </div>
+
+    <div id="adminLsGroupModal" class="admin-modal admin-modal--dark admin-modal--group" role="dialog" aria-modal="true" hidden>
+      <div class="admin-modal__dialog admin-modal__dialog--wide">
+        <div class="admin-modal__header">
+          <h2 id="adminLsGroupModalTitle">Add Group</h2>
+          <button type="button" class="admin-modal__close" data-close="group" aria-label="Close">&times;</button>
+        </div>
+        <form id="adminLsGroupForm">
+          <div class="admin-form-group">
+            <div class="admin-form-row admin-form-row--id-order">
+              <div class="admin-form-row__field admin-form-row__field--grow">
+                <label for="adminLsGroupId">Group id</label>
+                <input type="text" id="adminLsGroupId" required pattern="[a-z0-9-]+" />
+              </div>
+              <div class="admin-form-row__field admin-form-row__field--order">
+                <label for="adminLsGroupOrder">Order</label>
+                <input type="number" id="adminLsGroupOrder" value="0" min="0" />
+              </div>
+            </div>
+            <small>Group id: lowercase letters, numbers, hyphens (e.g. 1, 2, 3)</small>
+          </div>
+          <div class="admin-form-group">
+            <label for="adminLsGroupName">Display name</label>
+            <input type="text" id="adminLsGroupName" required placeholder="e.g. Group 1" />
+          </div>
+          <div class="admin-form-group">
+            <span class="admin-ls-label">Players</span>
+            <p class="admin-player-picks__hint">Only players not already in another group are listed.</p>
+            <div id="adminLsGroupPlayers" class="admin-player-picks admin-player-picks--inline"></div>
+          </div>
+          <div class="admin-form-actions">
+            <div class="admin-form-actions__left">
+              <button type="button" class="btn btn-danger" id="adminLsGroupDelete" hidden>Remove Group</button>
+            </div>
+            <div class="admin-form-actions__right">
+              <button type="button" class="btn btn-secondary" data-close="group">Cancel</button>
+              <button type="submit" class="btn btn-save" id="adminLsGroupSave">Save Group</button>
+            </div>
+          </div>
+          <p id="adminLsGroupModalMsg" class="msg admin-modal__msg admin-modal__msg--below-actions" hidden></p>
+        </form>
+      </div>
+    </div>
+
     <footer class="footer">
       <div class="wrapper">
         <nav class="footer__nav">
           <ul>
-            <li>
-              <a href="leagues.html" class="al" target="_self">Leagues</a>
-            </li>
-            <li>
-              <a href="fixtures.html" class="al" target="_self">Fixtures</a>
-            </li>
-            <li>
-              <a href="results.html" class="al" target="_self">Results</a>
-            </li>
+            <li><a href="leagues.html" class="al" target="_self">Leagues</a></li>
+            <li><a href="fixtures.html" class="al" target="_self">Fixtures</a></li>
+            <li><a href="results.html" class="al" target="_self">Results</a></li>
           </ul>
         </nav>
-        <div class="footer__copyright">
-          <p><span style="color: #169179">by JP</span></p>
-        </div>
+        <div class="footer__copyright"><p><span style="color: #169179">by JP</span></p></div>
         <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top">
           <svg width="20" height="20" viewBox="0 0 24 24">
-            <path
-              d="M8 6L12 2L16 6"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M12 2V22"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
+            <path d="M8 6L12 2L16 6" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M12 2V22" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </button>
       </div>

@@ -3,7 +3,9 @@
 
 document.addEventListener('DOMContentLoaded', function() {
   // Initialize image loading
-  ImageLoader.init();
+  if (typeof ImageLoader !== 'undefined') {
+    ImageLoader.init();
+  }
 
   // Shared current-competition context (public pages)
   if (typeof CurrentCompetition !== 'undefined') {
@@ -27,6 +29,9 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   if (document.getElementById('adminLeagueSeasonsRoot') && typeof AdminLeagueSeasonsPage !== 'undefined') {
     AdminLeagueSeasonsPage.init();
+  }
+  if (document.getElementById('adminSeasonRoot') && typeof AdminSeasonPage !== 'undefined') {
+    AdminSeasonPage.init();
   }
 
   // Home page — swipeable competition cards

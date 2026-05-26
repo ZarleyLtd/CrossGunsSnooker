@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en-gb">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="refresh" content="0;url=admin-league-seasons.html" />
+    <title>Manage Season - CrossGuns Snooker League</title>
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var id = params.get('seasonId') || params.get('id') || '';
+        var target = 'admin-league-seasons.html';
+        if (id) target += '?seasonId=' + encodeURIComponent(id);
+        window.location.replace(target);
+      })();
+    </script>
+  </head>
+  <body>
+    <p>Redirecting to <a href="admin-league-seasons.html">Manage League Seasons</a>…</p>
+  </body>
+</html>

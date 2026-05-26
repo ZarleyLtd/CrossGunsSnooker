@@ -1,6 +1,8 @@
 // Admin — league + knockout fixtures: grouped list + modal add/edit.
 
 var AdminFixturesPage = (function () {
+  var KNOCKOUT_GROUP_ID = 'ko';
+
   var self = {
     seasons: [],
     leagues: [],
@@ -86,17 +88,26 @@ var AdminFixturesPage = (function () {
       else if (ss.options.length) ss.selectedIndex = 0;
     },
 
-    fillLeagueSelect: function () {
+    /** Groups for the league-stage Group dropdown (excludes internal ko pool). */
+    leaguesForGroupSelect: function () {
+      return (this.leagues || []).filter(function (L) {
+        return String(L.leagueId) !== KNOCKOUT_GROUP_ID;
+      });
+    },
+
+    fillLeagueSelect: function (selectedLeagueId) {
       var ls = this.el.league;
       if (!ls) return;
+      var keep = selectedLeagueId != null ? String(selectedLeagueId) : ls.value;
       ls.innerHTML = '';
-      (this.leagues || []).forEach(function (L) {
+      this.leaguesForGroupSelect().forEach(function (L) {
         var o = document.createElement('option');
         o.value = L.leagueId;
         o.textContent = L.name;
         ls.appendChild(o);
       });
-      if (ls.options.length) ls.selectedIndex = 0;
+      if (keep && ls.querySelector('option[value="' + keep + '"]')) ls.value = keep;
+      else if (ls.options.length) ls.selectedIndex = 0;
     },
 
     fillRoundSelect: function () {
@@ -119,19 +130,39 @@ var AdminFixturesPage = (function () {
       return this.el.seasonSelect && this.el.seasonSelect.value;
     },
 
+    loadSeasonGroups: function () {
+      var me = this;
+      var sid = me.currentSeasonId();
+      if (!sid) {
+        me.leagues = [];
+        me.fillLeagueSelect();
+        return Promise.resolve();
+      }
+      return ApiClient.get({ action: 'getSeasonGroups', seasonId: sid }).then(function (r) {
+        var groups = r.groups || [];
+        var isKoSeason =
+          r.season && String(r.season.competitionType || '').toLowerCase() === 'knockout';
+        if (!isKoSeason) {
+          groups = groups.filter(function (g) {
+            return String(g.leagueId) !== KNOCKOUT_GROUP_ID;
+          });
+        }
+        me.leagues = groups;
+        me.fillLeagueSelect();
+      });
+    },
+
     loadMeta: function () {
       var me = this;
       if (typeof AdminMode === 'undefined' || !AdminMode.isUnlocked()) return;
-      Promise.all([
-        ApiClient.get({ action: 'getSeasons' }),
-        ApiClient.get({ action: 'getLeagues' }),
-      ])
-        .then(function (rs) {
-          me.seasons = rs[0].seasons || [];
-          me.leagues = rs[1].leagues || [];
+      ApiClient.get({ action: 'getSeasons' })
+        .then(function (r) {
+          me.seasons = r.seasons || [];
           me.fillSeasonSelect();
-          me.fillLeagueSelect();
           me.fillRoundSelect();
+          return me.loadSeasonGroups();
+        })
+        .then(function () {
           return me.reloadFixtures();
         })
         .catch(function (e) {
@@ -287,6 +318,7 @@ var AdminFixturesPage = (function () {
       if (this.el.league) this.el.league.required = !isKo;
       if (this.el.week) this.el.week.required = !isKo;
       if (this.el.round) this.el.round.required = isKo;
+      this.fillLeagueSelect(this.el.league && this.el.league.value);
       this.fillPlayerSelects(
         this.el.pa && this.el.pa.value,
         this.el.pb && this.el.pb.value
@@ -348,8 +380,8 @@ var AdminFixturesPage = (function () {
         this.el.roundCustom.value = '';
         this.el.roundCustom.hidden = true;
       }
-      if (this.el.league && this.el.league.options.length) this.el.league.selectedIndex = 0;
       if (this.el.deleteBtn) this.el.deleteBtn.hidden = true;
+      this.fillLeagueSelect();
       this.syncStageFields();
       this.fillPlayerSelects('', '');
       this.dialogFlash('', false);
@@ -381,7 +413,7 @@ var AdminFixturesPage = (function () {
           }
         }
       } else {
-        if (this.el.league) this.el.league.value = String(f['League'] || '');
+        this.fillLeagueSelect(String(f['League'] || ''));
         if (this.el.week) this.el.week.value = String(f['Game Week'] || '');
       }
       if (this.el.deleteBtn) this.el.deleteBtn.hidden = false;
@@ -493,9 +525,13 @@ var AdminFixturesPage = (function () {
       var me = this;
       if (this.el.seasonSelect) {
         this.el.seasonSelect.addEventListener('change', function () {
-          me.reloadFixtures().catch(function (e) {
-            me.flash(e.message || String(e), true);
-          });
+          me.loadSeasonGroups()
+            .then(function () {
+              return me.reloadFixtures();
+            })
+            .catch(function (e) {
+              me.flash(e.message || String(e), true);
+            });
         });
       }
       if (this.el.addBtn) {
