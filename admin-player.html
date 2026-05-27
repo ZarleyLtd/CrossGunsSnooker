@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Manage Players - CrossGuns Snooker League</title>
+    <title>Edit Player - CrossGuns Snooker League</title>
     <link rel="stylesheet" href="assets/css/style.css" />
     <link rel="stylesheet" href="assets/css/admin-panel.css" />
     <noscript
@@ -19,7 +19,8 @@
     <script src="assets/js/utils/admin-mode.js"></script>
     <script src="assets/js/utils/formatters.js"></script>
     <script src="assets/js/utils/image-loader.js"></script>
-    <script defer src="assets/js/pages/admin-players.js"></script>
+    <script src="assets/js/utils/player-slug.js"></script>
+    <script defer src="assets/js/pages/admin-player.js"></script>
     <script defer src="assets/js/main.js"></script>
   </head>
   <body class="page-template">
@@ -54,7 +55,7 @@
       <article class="content">
         <div class="hero">
           <header class="hero__content hero__content--centered">
-            <div class="wrapper"><h1>Manage Players</h1></div>
+            <div class="wrapper"><h1 id="adminPlayerTitle">Edit Player</h1></div>
           </header>
           <figure class="hero__image">
             <div class="hero__image-wrapper">
@@ -62,17 +63,74 @@
             </div>
           </figure>
         </div>
-        <div class="entry-wrapper content__entry" id="adminPlayersRoot">
-          <p id="adminPlayersGate" class="msg msg--info">
+        <div class="entry-wrapper content__entry" id="adminPlayerRoot">
+          <p id="adminPlayerGate" class="msg msg--info">
             Unlock <strong>Admin Mode</strong> from the menu to manage players and handicaps.
           </p>
-          <div id="adminPlayersPanel" class="admin-container" hidden>
-            <p id="adminPlMsg" class="msg" hidden></p>
+          <div id="adminPlayerPanel" class="admin-container" hidden>
             <div class="admin-toolbar">
-              <button type="button" class="btn" id="adminPlAddBtn">+ Add Player</button>
+              <a href="admin-players.html" class="btn">&larr; Players</a>
             </div>
-            <div id="adminPlList" class="admin-player-picks admin-item-list">
-              <p class="admin-player-picks__hint"><em>Loading players…</em></p>
+            <p id="adminPlayerMsg" class="msg" hidden></p>
+
+            <form id="adminPlayerForm">
+              <div class="admin-form-group">
+                <label for="adminPlayerId">Player id (leave blank to auto from name)</label>
+                <input type="text" id="adminPlayerId" />
+              </div>
+              <div class="admin-form-group">
+                <label for="adminPlayerName">Name</label>
+                <input type="text" id="adminPlayerName" required />
+              </div>
+              <div class="admin-form-actions">
+                <div class="admin-form-actions__left">
+                  <button type="button" class="btn btn-danger" id="adminPlayerDelete" hidden>Delete Player</button>
+                </div>
+                <div class="admin-form-actions__right">
+                  <a href="admin-players.html" class="btn btn-secondary">Cancel</a>
+                  <button type="submit" class="btn btn-save">Save Player</button>
+                </div>
+              </div>
+            </form>
+
+            <div id="adminPlayerHcSection" class="admin-player-hc-section" hidden>
+              <div class="admin-section-header admin-player-hc-section__header">
+                <h2 class="admin-player-hc-section__heading">Handicaps</h2>
+                <button type="button" class="btn" id="adminPlayerHcAddBtn">+ Add Handicap</button>
+              </div>
+              <div id="adminPlayerHcFormWrap" class="admin-player-hc-form" hidden>
+                <form id="adminPlayerHcForm" novalidate>
+                  <input type="hidden" id="adminPlayerHcId" />
+                  <div class="admin-form-row">
+                    <div class="admin-form-row__field">
+                      <label for="adminPlayerHcVal">Handicap</label>
+                      <input type="number" id="adminPlayerHcVal" />
+                    </div>
+                    <div class="admin-form-row__field">
+                      <label for="adminPlayerHcDate">Effective date</label>
+                      <input type="date" id="adminPlayerHcDate" />
+                    </div>
+                  </div>
+                  <div class="admin-form-actions">
+                    <div class="admin-form-actions__right">
+                      <button type="button" class="btn btn-secondary" id="adminPlayerHcCancel">Cancel</button>
+                      <button type="button" class="btn btn-save" id="adminPlayerHcSave">Save Handicap</button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+              <div id="adminPlayerHcList" class="admin-player-picks admin-item-list">
+                <p class="admin-player-picks__hint"><em>No handicap history.</em></p>
+              </div>
+            </div>
+
+            <div id="adminPlayerSeasonsSection" class="admin-player-seasons-section" hidden>
+              <div class="admin-section-header admin-player-seasons-section__header">
+                <h2 class="admin-player-seasons-section__heading">Seasons</h2>
+              </div>
+              <div id="adminPlayerSeasonsList" class="admin-player-picks admin-item-list">
+                <p class="admin-player-picks__hint"><em>Not on any season roster.</em></p>
+              </div>
             </div>
           </div>
         </div>

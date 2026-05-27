@@ -19,12 +19,6 @@ var AdminSeasonPage = (function () {
     }
   }
 
-  function activePlayers(all) {
-    return (all || []).filter(function (p) {
-      return p.active !== false;
-    });
-  }
-
   function seq(promises) {
     return promises.reduce(function (chain, fn) {
       return chain.then(fn);
@@ -99,7 +93,7 @@ var AdminSeasonPage = (function () {
           me.season = rs[0].season;
           me.groups = rs[0].groups || [];
           me.roster = rs[1].players || [];
-          me.allPlayers = activePlayers(rs[2].players || []);
+          me.allPlayers = rs[2].players || [];
           me.applySeasonUi();
           me.renderGroups();
           me.renderKnockoutPlayers();

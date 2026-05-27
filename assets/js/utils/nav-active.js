@@ -35,6 +35,14 @@
         }
         return;
       }
+
+      // Edit player page highlights Manage Players
+      if (currentPage === 'admin-player.html' && linkHref === 'admin-players.html') {
+        if (link.parentElement) {
+          link.parentElement.classList.add('active');
+        }
+        return;
+      }
       
       // Handle home/index page
       if (isHomePage && (linkHref === 'index.html' || linkHref === './index.html')) {

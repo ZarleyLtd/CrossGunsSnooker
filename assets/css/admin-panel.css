@@ -22,6 +22,7 @@
 
 .admin-toolbar .btn {
   margin: 0;
+  text-decoration: none;
 }
 
 .admin-scroll {
@@ -643,6 +644,177 @@
 .admin-container .admin-item-list__row--current .admin-player-picks__name,
 .admin-modal--dark .admin-item-list__row--current .admin-player-picks__name {
   color: var(--color);
+}
+
+/* Edit player — handicaps section */
+.admin-player-hc-section {
+  margin-top: 2.75em;
+  padding-top: 1.75em;
+  border-top: 1px solid var(--light);
+}
+
+.admin-player-hc-section__header {
+  margin-bottom: 1.25em;
+}
+
+.admin-player-hc-section__heading {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.admin-player-hc-form {
+  margin-bottom: 1.25em;
+  padding: 1em 1.1em;
+  border: 1px solid var(--light);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.admin-player-hc-form .admin-form-actions {
+  margin-bottom: 0;
+}
+
+.admin-hc-list__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.admin-container .admin-hc-list__row,
+.admin-modal--dark .admin-hc-list__row {
+  border-bottom-color: var(--light);
+}
+
+.admin-hc-list__row:last-child {
+  border-bottom: none;
+}
+
+.admin-hc-list__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-player-picks.admin-item-list > .admin-hc-list__row > button.admin-hc-list__main {
+  border-bottom: none;
+}
+
+.admin-player-picks.admin-item-list > .admin-hc-list__row > button.admin-hc-list__main,
+.admin-container .admin-player-picks.admin-item-list > .admin-hc-list__row > button.admin-hc-list__main,
+.admin-modal--dark .admin-player-picks.admin-item-list > .admin-hc-list__row > button.admin-hc-list__main {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75em;
+  margin: 0;
+  padding: 0.55em 0.75em;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+  font-size: inherit;
+  font-variation-settings: inherit;
+  font-weight: normal;
+  text-align: left;
+  width: 100%;
+  box-sizing: border-box;
+  cursor: pointer;
+  overflow: visible;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.admin-container .admin-player-picks.admin-item-list > .admin-hc-list__row > button.admin-hc-list__main,
+.admin-modal--dark .admin-player-picks.admin-item-list > .admin-hc-list__row > button.admin-hc-list__main {
+  color: var(--text-color);
+}
+
+.admin-container .admin-player-picks.admin-item-list > .admin-hc-list__row > button.admin-hc-list__main:hover,
+.admin-modal--dark .admin-player-picks.admin-item-list > .admin-hc-list__row > button.admin-hc-list__main:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.admin-hc-list__delete {
+  flex-shrink: 0;
+  align-self: center;
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 0.65em 0 0;
+  padding: 0.4em 0.75em;
+  min-height: 0;
+  height: auto;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  line-height: 1.2;
+  transform: none;
+  vertical-align: middle;
+  overflow: visible;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.admin-container .admin-hc-list__delete,
+.admin-modal--dark .admin-hc-list__delete {
+  background: #c33;
+  color: #fff;
+  padding: 0.4em 0.75em;
+  margin: 0 0.65em 0 0;
+  min-height: 0;
+  height: auto;
+  border-radius: 4px;
+  align-self: center;
+}
+
+.admin-container .admin-hc-list__delete:hover,
+.admin-modal--dark .admin-hc-list__delete:hover {
+  background: #a22;
+}
+
+.admin-player-seasons-section {
+  margin-top: 2.75em;
+  padding-top: 1.75em;
+  border-top: 1px solid var(--light);
+}
+
+.admin-player-seasons-section__header {
+  margin-bottom: 1.25em;
+}
+
+.admin-player-seasons-section__heading {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.admin-player-picks.admin-item-list > .admin-item-list__row--static {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75em;
+  margin: 0;
+  padding: 0.55em 0.75em;
+  border-bottom: 1px solid var(--admin-border);
+  background: transparent;
+  color: inherit;
+  box-sizing: border-box;
+}
+
+.admin-player-picks.admin-item-list > .admin-item-list__row--static:last-child {
+  border-bottom: none;
+}
+
+.admin-container .admin-player-picks.admin-item-list > .admin-item-list__row--static,
+.admin-modal--dark .admin-player-picks.admin-item-list > .admin-item-list__row--static {
+  color: var(--text-color);
+  border-bottom-color: var(--light);
 }
 
 .admin-season-league,

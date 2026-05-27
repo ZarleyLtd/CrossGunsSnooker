@@ -4,43 +4,39 @@
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Knockout - CrossGuns Snooker League</title>
-    <meta property="og:title" content="Knockout - CrossGuns Snooker League" />
-    <meta property="og:image" content="assets/images/crossguns-hero.png" />
-    <meta property="og:image:width" content="692" />
-    <meta property="og:image:height" content="320" />
-    <meta property="og:site_name" content="CrossGuns Snooker League" />
-    <meta property="og:description" content="Knockout draw for the current CrossGuns competition." />
-    <meta property="og:type" content="website" />
-    <link rel="icon" type="image/png" sizes="32x32" href="assets/images/favicon-32.png" />
-    <link rel="icon" type="image/png" sizes="96x96" href="assets/images/favicon-96.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="assets/images/favicon-180.png" />
+    <title>Bulk Load Players - CrossGuns Snooker League</title>
     <link rel="stylesheet" href="assets/css/style.css" />
-    <noscript><style>img[loading] { opacity: 1; }</style></noscript>
+    <noscript
+      ><style>
+        img[loading] {
+          opacity: 1;
+        }
+      </style></noscript
+    >
     <script src="assets/js/config/app-config.js"></script>
     <script src="assets/js/utils/api-client.js"></script>
-    <script src="assets/js/utils/current-competition.js"></script>
-    <script src="assets/js/utils/nav-competition.js"></script>
     <script src="assets/js/utils/admin-mode.js"></script>
     <script src="assets/js/utils/formatters.js"></script>
     <script src="assets/js/utils/image-loader.js"></script>
-    <script src="assets/js/utils/knockout-rounds.js"></script>
-    <script src="assets/js/components/knockout-renderer.js"></script>
-    <script src="assets/js/pages/knockout.js"></script>
+    <script src="assets/js/utils/player-slug.js"></script>
+    <script src="assets/js/utils/csv-parse.js"></script>
+    <script defer src="assets/js/pages/admin-bulk-players.js"></script>
     <script defer src="assets/js/main.js"></script>
   </head>
   <body class="page-template">
     <header class="top js-header">
       <a class="logo" href="index.html">
-        <img src="assets/images/crossguns-logo.png" alt="CrossGuns Snooker League" width="281" height="445">
+        <img src="assets/images/crossguns-logo.png" alt="CrossGuns Snooker League" width="281" height="445" />
       </a>
       <nav class="navbar js-navbar">
         <button class="navbar__toggle js-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
-          <span class="navbar__toggle-box"><span class="navbar__toggle-inner">Menu</span></span>
+          <span class="navbar__toggle-box">
+            <span class="navbar__toggle-inner">Menu</span>
+          </span>
         </button>
         <ul class="navbar__menu">
           <li><a href="index.html" target="_self">Home</a></li>
-          <li class="nav-item-standings active"><a href="knockout.html" target="_self" class="nav-standings-link">Knockout</a></li>
+          <li><a href="leagues.html" target="_self">Leagues</a></li>
           <li><a href="fixtures.html" target="_self">Fixtures</a></li>
           <li><a href="results.html" target="_self">Results</a></li>
           <li><a href="top-breaks.html" target="_self">Top Breaks</a></li>
@@ -59,17 +55,45 @@
       <article class="content">
         <div class="hero">
           <header class="hero__content hero__content--centered">
-            <div class="wrapper"><h1>Knockout</h1></div>
+            <div class="wrapper"><h1>Bulk Load Players</h1></div>
           </header>
           <figure class="hero__image">
             <div class="hero__image-wrapper">
-              <img src="assets/images/crossguns-hero.png" loading="eager" height="320" width="692" alt="CrossGuns Snooker League" />
+              <img src="assets/images/crossguns-hero.png" loading="eager" height="529" width="1456" alt="Snooker table" />
             </div>
           </figure>
         </div>
-        <div class="entry-wrapper content__entry">
-          <p id="page-competition-name" class="align-center" style="color:#169179;font-weight:600;margin-bottom:1rem;"></p>
-          <div id="knockout-bracket" class="knockout-wrapper">Loading…</div>
+        <div class="entry-wrapper content__entry" id="adminBulkPlayersRoot">
+          <p id="adminBulkPlGate" class="msg msg--info">
+            Unlock <strong>Admin Mode</strong> from the menu to bulk import players and handicaps.
+          </p>
+          <div id="adminBulkPlPanel" hidden>
+            <p id="adminBulkPlMsg" class="msg" hidden></p>
+            <div class="admin-toolbar">
+              <a href="admin-players.html" class="btn">&larr; Players</a>
+            </div>
+            <h2 class="h3">Bulk CSV (players + handicaps)</h2>
+            <p>
+              Columns: <code>PlayerName</code>, <code>handicap</code>, <code>EffectiveDate</code> (comma or tab). Optional header
+              with PlayerName. Player id is derived from the name (same rules as the sheet migration script).
+            </p>
+            <p>
+              <label><input type="checkbox" id="adminBulkPlRosterChk" /> Also add each player to season roster</label>
+            </p>
+            <p>
+              <label for="adminBulkPlRosterSeason">Roster season</label><br />
+              <select id="adminBulkPlRosterSeason"></select>
+            </p>
+            <p>
+              <label for="adminBulkPlRosterLeague">Roster league</label><br />
+              <select id="adminBulkPlRosterLeague"></select>
+            </p>
+            <p>
+              <textarea id="adminBulkPlCsv" rows="8" style="width: 100%; max-width: 40rem" placeholder="Jane Doe,42,2025-09-01"></textarea>
+            </p>
+            <p><button type="button" class="btn" id="adminBulkPlRun">Import rows</button></p>
+            <pre id="adminBulkPlLog" class="admin-log" style="max-height: 12rem; overflow: auto"></pre>
+          </div>
         </div>
       </article>
     </main>
@@ -77,12 +101,12 @@
       <div class="wrapper">
         <nav class="footer__nav">
           <ul>
-            <li><a href="knockout.html" class="al footer-standings-link" target="_self">Knockout</a></li>
+            <li><a href="leagues.html" class="al" target="_self">Leagues</a></li>
             <li><a href="fixtures.html" class="al" target="_self">Fixtures</a></li>
             <li><a href="results.html" class="al" target="_self">Results</a></li>
           </ul>
         </nav>
-        <div class="footer__copyright"><p><span style="color: #169179;">by JP</span></p></div>
+        <div class="footer__copyright"><p><span style="color: #169179">by JP</span></p></div>
         <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top">
           <svg width="20" height="20" viewBox="0 0 24 24">
             <path d="M8 6L12 2L16 6" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
@@ -91,9 +115,16 @@
         </button>
       </div>
     </footer>
-    <script defer="defer" src="assets/js/scripts.min.js"></script>
+    <script defer src="assets/js/scripts.min.js"></script>
     <script>
-      window.themeMenuConfig = { mobileMenuMode: "overlay", animationSpeed: 300, submenuWidth: "auto", doubleClickTime: 500, mobileMenuExpandableSubmenus: true, relatedContainerForOverlayMenuSelector: ".top" };
+      window.themeMenuConfig = {
+        mobileMenuMode: "overlay",
+        animationSpeed: 300,
+        submenuWidth: "auto",
+        doubleClickTime: 500,
+        mobileMenuExpandableSubmenus: true,
+        relatedContainerForOverlayMenuSelector: ".top",
+      };
     </script>
     <script src="assets/js/utils/nav-active.js"></script>
   </body>

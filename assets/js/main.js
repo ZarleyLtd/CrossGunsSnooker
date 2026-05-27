@@ -27,6 +27,12 @@ document.addEventListener('DOMContentLoaded', function() {
   if (document.getElementById('adminPlayersRoot') && typeof AdminPlayersPage !== 'undefined') {
     AdminPlayersPage.init();
   }
+  if (document.getElementById('adminBulkPlayersRoot') && typeof AdminBulkPlayersPage !== 'undefined') {
+    AdminBulkPlayersPage.init();
+  }
+  if (document.getElementById('adminPlayerRoot') && typeof AdminPlayerPage !== 'undefined') {
+    AdminPlayerPage.init();
+  }
   if (document.getElementById('adminLeagueSeasonsRoot') && typeof AdminLeagueSeasonsPage !== 'undefined') {
     AdminLeagueSeasonsPage.init();
   }

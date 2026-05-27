@@ -24,12 +24,6 @@ var AdminLeagueSeasonsPage = (function () {
     return String(raw).toLowerCase() === 'knockout' ? 'knockout' : 'league';
   }
 
-  function activePlayers(all) {
-    return (all || []).filter(function (p) {
-      return p.active !== false;
-    });
-  }
-
   function seq(steps) {
     return steps.reduce(function (chain, fn) {
       return chain.then(fn);
@@ -166,7 +160,7 @@ var AdminLeagueSeasonsPage = (function () {
       ]).then(function (rs) {
         me.groups = rs[0].groups || [];
         me.roster = rs[1].players || [];
-        me.allPlayers = activePlayers(rs[2].players || []);
+        me.allPlayers = rs[2].players || [];
         if (rs[0].season && (sessionId === undefined || sessionId === me.editSessionId)) {
           me.applySeasonMeta(rs[0].season);
         }

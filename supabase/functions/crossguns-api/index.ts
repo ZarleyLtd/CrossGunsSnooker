@@ -10,9 +10,10 @@
 //   ?action=getFixtures   [&season=<id>]
 //   ?action=getStandings  [&season=<id>]
 //   ?action=getHandicaps
-//   ?action=getPlayers    [&season=<id>] [&league=<id>]
+//   ?action=getPlayers    [&season=<id>] [&league=<id>]  (no params -> seasonCount, matchCount per player)
 //   ?action=getTopBreaks  [&season=<id>] [&league=<id>] [&limit=<n>]
 //   ?action=getSeasons
+//   ?action=getPlayerSeasons  &playerId=<id>
 //   ?action=getSeasonGroups  &seasonId=<id>
 //   ?action=getLeagues
 //   ?action=getBreaksForFixture  &fixtureId=<uuid>
@@ -355,13 +356,51 @@ async function handleGetPlayers(req: Request): Promise<Response> {
   const leagueParam = url.searchParams.get("league");
 
   if (!seasonParam && !leagueParam) {
-    const players = await loadAllPlayers();
+    const sql = db();
+    const rows = await sql<{
+      player_id: string;
+      player_name: string;
+      season_count: number;
+      match_count: number;
+    }[]>`
+      select p.player_id,
+             p.player_name,
+             coalesce(sc.season_count, 0)::int as season_count,
+             coalesce(mc.match_count, 0)::int as match_count
+        from crossguns.players p
+        left join lateral (
+          select count(*)::int as season_count
+            from (
+              select sp.season_id
+                from crossguns.season_players sp
+               where sp.player_id = p.player_id
+              union
+              select f.season_id
+                from crossguns.fixtures f
+               where f.player_a_id = p.player_id or f.player_b_id = p.player_id
+            ) combined
+        ) sc on true
+        left join lateral (
+          select count(*)::int as match_count
+            from crossguns.fixtures f
+           where (f.player_a_id = p.player_id or f.player_b_id = p.player_id)
+             and f.score_a is not null
+             and f.score_b is not null
+        ) mc on true
+       order by p.player_name asc
+    `;
     return jsonResponse({
       success: true,
-      players: players.map((p) => ({
+      players: (rows as unknown as Array<{
+        player_id: string;
+        player_name: string;
+        season_count: number;
+        match_count: number;
+      }>).map((p) => ({
         playerId: p.player_id,
         playerName: p.player_name,
-        active: p.active,
+        seasonCount: p.season_count,
+        matchCount: p.match_count,
       })),
     });
   }
@@ -669,6 +708,44 @@ async function handleGetSeasons(): Promise<Response> {
       name: r.name,
       startsOn: r.starts_on,
       endsOn: r.ends_on,
+      isCurrent: r.is_current,
+      competitionType: r.competition_type,
+    })),
+  });
+}
+
+async function handleGetPlayerSeasons(req: Request): Promise<Response> {
+  const url = new URL(req.url);
+  const playerId = String(url.searchParams.get("playerId") ?? "").trim();
+  if (!playerId) return errorResponse("playerId required");
+
+  const sql = db();
+  const rows = await sql<{
+    season_id: string;
+    name: string;
+    is_current: boolean;
+    competition_type: string;
+  }[]>`
+    select season_id, name, is_current, competition_type
+    from (
+      select s.season_id, s.name, s.is_current, s.competition_type, s.starts_on
+        from crossguns.season_players sp
+        join crossguns.seasons s on s.season_id = sp.season_id
+       where sp.player_id = ${playerId}
+      union
+      select s.season_id, s.name, s.is_current, s.competition_type, s.starts_on
+        from crossguns.fixtures f
+        join crossguns.seasons s on s.season_id = f.season_id
+       where f.player_a_id = ${playerId} or f.player_b_id = ${playerId}
+    ) combined
+    order by starts_on desc nulls last, season_id desc
+  `;
+  return jsonResponse({
+    success: true,
+    playerId,
+    seasons: (rows as unknown as Array<{ season_id: string; name: string; is_current: boolean; competition_type: string }>).map((r) => ({
+      seasonId: r.season_id,
+      name: r.name,
       isCurrent: r.is_current,
       competitionType: r.competition_type,
     })),
@@ -1351,7 +1428,7 @@ async function handleDeletePlayer(data: Record<string, unknown>): Promise<Respon
   const inBreaks = Boolean((br[0] as { ok: boolean }).ok);
   if (inFixtures || inBreaks) {
     return errorResponse(
-      "Cannot delete player: still referenced by fixtures or breaks. Remove or reassign those first, or set active to false.",
+      "Cannot delete player: still referenced by fixtures or breaks. Remove or reassign those first.",
       409,
     );
   }
@@ -1475,6 +1552,7 @@ Deno.serve(async (req: Request) => {
       case "getPlayers":          return await handleGetPlayers(req);
       case "getTopBreaks":        return await handleGetTopBreaks(req);
       case "getSeasons":          return await handleGetSeasons();
+      case "getPlayerSeasons":    return await handleGetPlayerSeasons(req);
       case "getSeasonGroups":     return await handleGetSeasonGroups(req);
       case "getLeagues":          return await handleGetLeaguesPublic();
       case "getBreaksForFixture": return await handleGetBreaksForFixture(req);
