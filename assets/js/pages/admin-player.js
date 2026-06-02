@@ -59,7 +59,6 @@ var AdminPlayerPage = (function () {
       this.el.msg = document.getElementById('adminPlayerMsg');
       this.el.title = document.getElementById('adminPlayerTitle');
       this.el.pForm = document.getElementById('adminPlayerForm');
-      this.el.pId = document.getElementById('adminPlayerId');
       this.el.pName = document.getElementById('adminPlayerName');
       this.el.pDelete = document.getElementById('adminPlayerDelete');
       this.el.hcSection = document.getElementById('adminPlayerHcSection');
@@ -111,10 +110,6 @@ var AdminPlayerPage = (function () {
     },
 
     applyCreateUi: function () {
-      if (this.el.pId) {
-        this.el.pId.value = '';
-        this.el.pId.readOnly = false;
-      }
       if (this.el.pName) this.el.pName.value = '';
       if (this.el.pDelete) this.el.pDelete.hidden = true;
       if (this.el.hcSection) this.el.hcSection.hidden = true;
@@ -124,10 +119,6 @@ var AdminPlayerPage = (function () {
     },
 
     applyEditUi: function (p) {
-      if (this.el.pId) {
-        this.el.pId.value = p.playerId;
-        this.el.pId.readOnly = true;
-      }
       if (this.el.pName) this.el.pName.value = p.playerName || '';
       if (this.el.pDelete) this.el.pDelete.hidden = false;
       if (this.el.hcSection) this.el.hcSection.hidden = false;
@@ -290,7 +281,7 @@ var AdminPlayerPage = (function () {
       if (!box) return;
       var rows = (this.seasons || []).slice();
       if (!rows.length) {
-        box.innerHTML = '<p class="admin-player-picks__hint"><em>Not on any season roster.</em></p>';
+        box.innerHTML = '<p class="admin-player-picks__hint"><em>Not on any comp roster.</em></p>';
         return;
       }
       box.innerHTML = rows
@@ -343,9 +334,7 @@ var AdminPlayerPage = (function () {
         me.flash('Player name required.', true);
         return;
       }
-      var pid =
-        (me.el.pId && me.el.pId.value.trim()) ||
-        (me.playerId ? me.playerId : PlayerSlug.slugify(name));
+      var pid = me.playerId || PlayerSlug.slugify(name);
       ApiClient.post('upsertPlayer', { playerId: pid, playerName: name, active: true })
         .then(function () {
           if (me.isCreateMode()) {

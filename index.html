@@ -19,6 +19,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="assets/images/favicon-192.png" />
     <link rel="icon" type="image/png" sizes="512x512" href="assets/images/favicon-512.png" />
     <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/home-carousel.css" />
     <noscript>
       <style>
         img[loading] { opacity: 1; }
@@ -36,6 +37,7 @@
     <!-- Components -->
     <script src="assets/js/components/league-standings.js"></script>
     <script src="assets/js/utils/knockout-rounds.js"></script>
+    <script src="assets/js/utils/knockout-bracket.js"></script>
     <script src="assets/js/components/knockout-renderer.js"></script>
     <!-- Page modules -->
     <script src="assets/js/pages/index.js"></script>
@@ -73,21 +75,7 @@
           <li>
             <button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button>
           </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-fixtures.html" target="_self">Manage Fixtures</a>
-          </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a>
-          </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-players.html" target="_self">Manage Players</a>
-          </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-bulk-players.html" target="_self">Bulk Load Players</a>
-          </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-league-seasons.html" target="_self">Manage League Seasons</a>
-          </li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
         </ul>
       </nav>
     </header>
@@ -107,19 +95,20 @@
         </div>
         <div class="entry-wrapper content__entry">
           <div id="home-carousel" class="home-carousel" aria-label="Current competitions">
-            <button type="button" class="home-carousel__arrow home-carousel__arrow--prev" id="home-carousel-prev" aria-label="Previous competition" hidden>
-              <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 6L8 12L14 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
+            <div class="home-carousel__comp-header">
+              <button type="button" class="home-carousel__arrow home-carousel__arrow--prev is-unavailable" id="home-carousel-prev" aria-label="Previous competition" disabled aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 6L8 12L14 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <h2 id="home-carousel-comp-title" class="home-carousel__comp-title align-center">Loading…</h2>
+              <button type="button" class="home-carousel__arrow home-carousel__arrow--next is-unavailable" id="home-carousel-next" aria-label="Next competition" disabled aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6L16 12L10 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </div>
             <div class="home-carousel__viewport" id="home-carousel-viewport">
               <div id="home-carousel-track" class="home-carousel__track">
                 <p class="align-center"><em>Loading competitions…</em></p>
               </div>
             </div>
-            <button type="button" class="home-carousel__arrow home-carousel__arrow--next" id="home-carousel-next" aria-label="Next competition" hidden>
-              <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6L16 12L10 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-            <div id="home-carousel-dots" class="home-carousel__dots" aria-hidden="true"></div>
-            <p class="home-carousel__hint align-center" hidden>Swipe or use arrows to change competition</p>
           </div>
         </div>
       </article>

@@ -19,36 +19,17 @@ var ResultsPage = {
     return typeof AdminMode !== 'undefined' && AdminMode.isUnlocked();
   },
 
-  highlightSelectedLeague: function () {
-    var selected = document.querySelector('input[name="league"]:checked');
-    if (!selected) return;
-    document.querySelectorAll('.league-label').forEach(function (label) {
-      var input = label.querySelector('input[name="league"]');
-      if (input && input.value === selected.value) {
-        label.style.fontWeight = 'bold';
-        label.style.border = '3px solid green';
-        label.style.borderRadius = '4px';
-      } else {
-        label.style.fontWeight = 'normal';
-        label.style.border = '1px solid transparent';
-      }
-    });
-  },
-
   selectedLeague: function () {
-    var el = document.querySelector('input[name="league"]:checked');
-    return el ? el.value : 'All';
+    return typeof LeagueGroupFilter !== 'undefined'
+      ? LeagueGroupFilter.selected()
+      : 'All';
   },
 
-  bindLeagueFilter: function () {
-    var self = this;
-    document.querySelectorAll('input[name="league"]').forEach(function (rb) {
-      rb.addEventListener('change', function () {
-        self.highlightSelectedLeague();
-        self.init().catch(function (e) { console.error(e); });
-      });
-    });
-    this.highlightSelectedLeague();
+  refreshFilterAndLoad: async function () {
+    if (typeof LeagueGroupFilter !== 'undefined') {
+      await LeagueGroupFilter.sync();
+    }
+    return this.loadResults();
   },
 
   init: async function () {
@@ -66,10 +47,18 @@ var ResultsPage = {
       });
 
       window.addEventListener(CurrentCompetition.EVENT_NAME, function () {
-        self.loadResults().catch(function (e) {
+        self.refreshFilterAndLoad().catch(function (e) {
           console.error(e);
         });
       });
+
+      if (typeof LeagueGroupFilter !== 'undefined') {
+        LeagueGroupFilter.bindChange(function () {
+          self.loadResults().catch(function (e) {
+            console.error(e);
+          });
+        });
+      }
 
       if (typeof FixturesPage !== 'undefined' && FixturesPage.RESULT_SAVED_EVENT) {
         window.addEventListener(FixturesPage.RESULT_SAVED_EVENT, function () {
@@ -79,7 +68,6 @@ var ResultsPage = {
         });
       }
 
-      this.bindLeagueFilter();
     }
 
     if (typeof FixturesPage !== 'undefined') {
@@ -87,7 +75,7 @@ var ResultsPage = {
     }
 
     await CurrentCompetition.whenReady(function () {
-      return self.loadResults();
+      return self.refreshFilterAndLoad();
     });
   },
 

@@ -22,9 +22,14 @@
 - **Data sync**: `scripts/migrate-sheets-to-supabase.mjs` reads the legacy CrossGuns Google Sheet CSVs and upserts into Supabase. Idempotent.
 - **Plans**: Architectural plans live in `docs/plans/`.
 
+## Reference project (feature patterns)
+- **ierne-snooker** (`C:\CursorSites\ierne-snooker`) is the reference for comps/knockout stages, home carousel, admin fixture KO tooling, and related data-model patterns.
+- Copy **behaviour and patterns**, not wholesale file copies; keep the `crossguns` schema and Edge Function unless a migration explicitly changes them.
+- When adding or fixing layout/CSS for nav, fixture rows, and admin dialogs, **PubliiCrossguns remains the UI authority** — align with CrossGuns patterns before inventing new ones (rule #9).
+
 ## CrossGuns-specific UI parity
 The five public pages must keep the legacy CrossGuns behaviour:
-- `index.html`: 3 group leaders (`g1-leader`/`g2-leader`/`g3-leader`), no knockout panel. Tied leaders shown as "X & Y (tied)" when Pts/+/-/W match.
+- `index.html`: swipeable carousel of current comps; comp name in carousel header; league cards show per-group leaders (tied as "X & Y (tied)"); knockout via horizontal bracket; linked KO stages appear on the parent league card (not a separate slide).
 - `fixtures.html`: radio filter All/Group 1/Group 2/Group 3; upcoming-only; grouped by Game Week; admin "V" button opens entry dialog.
 - `results.html`: radio filter; only fixtures with a recorded score; winner (score = 2) is bolded; admin can re-open the dialog via `[score]` button.
 - `leagues.html`: three monospaced `<pre>` blocks (`league-a`/`league-b`/`league-c`); ordering = full CrossGuns tiebreak chain.

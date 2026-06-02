@@ -33,6 +33,9 @@ document.addEventListener('DOMContentLoaded', function() {
   if (document.getElementById('adminPlayerRoot') && typeof AdminPlayerPage !== 'undefined') {
     AdminPlayerPage.init();
   }
+  if (document.getElementById('adminCompetitionsRoot') && typeof AdminCompetitionsPage !== 'undefined') {
+    AdminCompetitionsPage.init();
+  }
   if (document.getElementById('adminLeagueSeasonsRoot') && typeof AdminLeagueSeasonsPage !== 'undefined') {
     AdminLeagueSeasonsPage.init();
   }
@@ -55,14 +58,12 @@ document.addEventListener('DOMContentLoaded', function() {
     ResultsPage.init();
   }
 
-  // Leagues page (Group 1/2/3 standings - league-a/b/c)
-  if (document.getElementById('league-a') ||
-      document.getElementById('league-b') ||
-      document.getElementById('league-c')) {
+  // Leagues page (dynamic group standings)
+  if (document.getElementById('leagues-standings-root')) {
     LeaguesPage.init();
   }
 
-  // Knockout bracket page
+  // Knockout bracket page (legacy redirect page)
   if (document.getElementById('knockout-bracket') && typeof KnockoutPage !== 'undefined') {
     KnockoutPage.init();
   }

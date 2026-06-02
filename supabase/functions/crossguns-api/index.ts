@@ -88,6 +88,7 @@ type SeasonRow = {
   ends_on: string | null;
   is_current: boolean;
   competition_type: "league" | "knockout";
+  parent_season_id: string | null;
 };
 type SeasonPlayerRow = { season_id: string; league_id: string; player_id: string };
 type FixtureRow = {
@@ -176,7 +177,7 @@ async function resolveSeasonId(requested: string | null): Promise<string> {
   const sql = db();
   if (requested) {
     const found = await sql<SeasonRow[]>`
-      select season_id, name, starts_on, ends_on, is_current, competition_type
+      select season_id, name, starts_on, ends_on, is_current, competition_type, parent_season_id
       from crossguns.seasons
       where season_id = ${requested}
     `;
@@ -184,7 +185,7 @@ async function resolveSeasonId(requested: string | null): Promise<string> {
     return (found[0] as unknown as SeasonRow).season_id;
   }
   const current = await sql<SeasonRow[]>`
-    select season_id, name, starts_on, ends_on, is_current, competition_type
+    select season_id, name, starts_on, ends_on, is_current, competition_type, parent_season_id
     from crossguns.seasons
     where is_current = true
     order by competition_type asc, starts_on desc nulls last, season_id asc
@@ -202,6 +203,145 @@ async function loadLeagues(): Promise<LeagueRow[]> {
     order by display_order asc, league_id asc
   `;
   return rows as unknown as LeagueRow[];
+}
+
+async function loadSeasonGroups(seasonId: string): Promise<LeagueRow[]> {
+  const sql = db();
+  const rows = await sql<LeagueRow[]>`
+    select sg.league_id, l.name, sg.display_order
+      from crossguns.season_groups sg
+      join crossguns.leagues l on l.league_id = sg.league_id
+     where sg.season_id = ${seasonId}
+       and sg.league_id <> ${KNOCKOUT_GROUP_ID}
+     order by sg.display_order asc, sg.league_id asc
+  `;
+  return rows as unknown as LeagueRow[];
+}
+
+const KNOCKOUT_GROUP_ID = "ko";
+const WINNER_OF_PREFIX = "wo:";
+
+const KNOCKOUT_ROUND_LABELS: Record<string, string> = {
+  QF1: "Quarter-final 1",
+  QF2: "Quarter-final 2",
+  QF3: "Quarter-final 3",
+  QF4: "Quarter-final 4",
+  SF1: "Semi-final 1",
+  SF2: "Semi-final 2",
+  F: "Final",
+  "F-P": "Plate Final",
+  "F-C": "Championship Final",
+};
+
+function knockoutRoundLabel(code: string): string {
+  const c = code.trim();
+  if (!c) return "";
+  if (KNOCKOUT_ROUND_LABELS[c]) return KNOCKOUT_ROUND_LABELS[c];
+
+  const l32 = c.match(/^L32-(\d+)$/i);
+  if (l32) return `Last 32 — match ${l32[1]}`;
+
+  const l16 = c.match(/^L16-(\d+)$/i);
+  if (l16) return `Last 16 — match ${l16[1]}`;
+
+  const qf = c.match(/^QF(\d+)$/i);
+  if (qf) return `Quarter-final ${qf[1]}`;
+
+  const sf = c.match(/^SF(\d+)$/i);
+  if (sf) return `Semi-final ${sf[1]}`;
+
+  const koLast = c.match(/^KO Last (\d+)$/i);
+  if (koLast) {
+    const n = parseInt(koLast[1], 10);
+    if (n === 2) return "Final";
+    if (n === 4) return "Semi-finals";
+    if (n === 8) return "Quarter-finals";
+    if (n === 16) return "Last 16";
+    if (n === 32) return "Last 32";
+    return `Last ${n}`;
+  }
+  if (/^KO Pre-/i.test(c)) return "Preliminary";
+  return c;
+}
+
+function winnerOfPlayerName(roundCode: string): string {
+  const label = knockoutRoundLabel(roundCode);
+  const base = label || roundCode.trim();
+  // players.player_name is unique — include round code so labels like "Final"
+  // (F vs KO Last 2) never collide and block wo:* row creation.
+  if (!base) return `Winner (${roundCode})`;
+  return `${base} Winner (${roundCode})`;
+}
+
+function isWinnerOfPlayerId(playerId: string): boolean {
+  return String(playerId).startsWith(WINNER_OF_PREFIX);
+}
+
+async function ensureWinnerOfPlayers(
+  sql: ReturnType<typeof postgres>,
+  ...playerIds: string[]
+): Promise<void> {
+  for (const rawId of playerIds) {
+    const playerId = String(rawId ?? "").trim();
+    if (!isWinnerOfPlayerId(playerId)) continue;
+    const roundCode = playerId.slice(WINNER_OF_PREFIX.length).trim();
+    if (!roundCode) continue;
+    const playerName = winnerOfPlayerName(roundCode);
+    await sql`
+      insert into crossguns.players (player_id, player_name, active, updated_at)
+      values (${playerId}, ${playerName}, false, now())
+      on conflict (player_id) do update set
+        player_name = excluded.player_name,
+        updated_at = now()
+    `;
+  }
+}
+
+async function assertFixturePlayersExist(
+  sql: ReturnType<typeof postgres>,
+  ...playerIds: string[]
+): Promise<void> {
+  for (const rawId of playerIds) {
+    const playerId = String(rawId ?? "").trim();
+    if (!playerId) continue;
+    const found = await sql<{ ok: boolean }[]>`
+      select exists(
+        select 1 from crossguns.players where player_id = ${playerId}
+      ) as ok
+    `;
+    if (!found.length || !(found[0] as { ok: boolean }).ok) {
+      const hint = isWinnerOfPlayerId(playerId)
+        ? " Knockout placeholder player could not be created — redeploy crossguns-api or pick the player again."
+        : "";
+      throw new Error(`Unknown player id: ${playerId}.${hint}`);
+    }
+  }
+}
+
+function inferParentSeasonIdFromKnockoutSeasonId(seasonId: string): string | null {
+  const m = seasonId.match(/^(.+)-(ko|knockout)$/i);
+  return m ? m[1] : null;
+}
+
+function resolvedParentSeasonId(r: SeasonRow): string | null {
+  if (r.parent_season_id) return r.parent_season_id;
+  if (r.competition_type !== "knockout") return null;
+  return inferParentSeasonIdFromKnockoutSeasonId(r.season_id);
+}
+
+function mapSeasonRow(r: SeasonRow) {
+  const parentSeasonId = resolvedParentSeasonId(r);
+  return {
+    seasonId: r.season_id,
+    compId: r.season_id,
+    name: r.name,
+    startsOn: r.starts_on,
+    endsOn: r.ends_on,
+    isCurrent: r.is_current,
+    competitionType: r.competition_type,
+    parentSeasonId,
+    parentCompId: parentSeasonId,
+  };
 }
 
 // ---------- CrossGuns tiebreaker -------------------------------------------
@@ -387,6 +527,7 @@ async function handleGetPlayers(req: Request): Promise<Response> {
              and f.score_a is not null
              and f.score_b is not null
         ) mc on true
+       where p.player_id not like ${WINNER_OF_PREFIX + "%"}
        order by p.player_name asc
     `;
     return jsonResponse({
@@ -450,6 +591,12 @@ async function handleGetFixtures(req: Request): Promise<Response> {
   const fixtures = (fixtureRows as unknown as FixtureRow[]).map((r) => {
     const a = playerMap.get(r.player_a_id);
     const b = playerMap.get(r.player_b_id);
+    const nameA = isWinnerOfPlayerId(r.player_a_id)
+      ? winnerOfPlayerName(r.player_a_id.slice(WINNER_OF_PREFIX.length))
+      : (a?.player_name ?? "");
+    const nameB = isWinnerOfPlayerId(r.player_b_id)
+      ? winnerOfPlayerName(r.player_b_id.slice(WINNER_OF_PREFIX.length))
+      : (b?.player_name ?? "");
     const result = r.score_a != null && r.score_b != null
       ? `${r.score_a}-${r.score_b}`
       : "";
@@ -458,8 +605,8 @@ async function handleGetFixtures(req: Request): Promise<Response> {
       "Game Week": r.round_label,
       "League": r.league_id,
       "Stage": r.stage,
-      "Player A": a?.player_name ?? "",
-      "Player B": b?.player_name ?? "",
+      "Player A": nameA,
+      "Player B": nameB,
       "Match Date": r.match_date ?? "",
       "Result": result,
       scoreA: r.score_a,
@@ -481,7 +628,7 @@ async function handleGetStandings(req: Request): Promise<Response> {
   const sql = db();
   const [players, leagues, members, standings, h2h, maxBreaks] = await Promise.all([
     loadAllPlayers(),
-    loadLeagues(),
+    loadSeasonGroups(seasonId),
     sql<SeasonPlayerRow[]>`
       select season_id, league_id, player_id
       from crossguns.season_players
@@ -559,13 +706,15 @@ async function handleGetStandings(req: Request): Promise<Response> {
       "+/-": r.frameDiff,
       Pts: r.points,
     }));
-    return { leagueId: lg.league_id, name: lg.name, rows };
-  });
+    return { leagueId: lg.league_id, groupId: lg.league_id, name: lg.name, rows };
+  }).filter((lg) => lg.rows.length > 0);
 
   return jsonResponse({
     success: true,
     season: seasonId,
+    compId: seasonId,
     leagues: leaguesOut,
+    groups: leaguesOut,
   });
 }
 
@@ -697,20 +846,15 @@ async function handleGetSeasons(): Promise<Response> {
            to_char(starts_on, 'YYYY-MM-DD') as starts_on,
            to_char(ends_on, 'YYYY-MM-DD') as ends_on,
            is_current,
-           competition_type
+           competition_type,
+           parent_season_id
       from crossguns.seasons
       order by starts_on desc nulls last, season_id desc
   `;
   return jsonResponse({
     success: true,
-    seasons: (rows as unknown as SeasonRow[]).map((r) => ({
-      seasonId: r.season_id,
-      name: r.name,
-      startsOn: r.starts_on,
-      endsOn: r.ends_on,
-      isCurrent: r.is_current,
-      competitionType: r.competition_type,
-    })),
+    seasons: (rows as unknown as SeasonRow[]).map(mapSeasonRow),
+    competitions: (rows as unknown as SeasonRow[]).map(mapSeasonRow),
   });
 }
 
@@ -725,15 +869,16 @@ async function handleGetPlayerSeasons(req: Request): Promise<Response> {
     name: string;
     is_current: boolean;
     competition_type: string;
+    parent_season_id: string | null;
   }[]>`
-    select season_id, name, is_current, competition_type
+    select season_id, name, is_current, competition_type, parent_season_id
     from (
-      select s.season_id, s.name, s.is_current, s.competition_type, s.starts_on
+      select s.season_id, s.name, s.is_current, s.competition_type, s.parent_season_id, s.starts_on
         from crossguns.season_players sp
         join crossguns.seasons s on s.season_id = sp.season_id
        where sp.player_id = ${playerId}
       union
-      select s.season_id, s.name, s.is_current, s.competition_type, s.starts_on
+      select s.season_id, s.name, s.is_current, s.competition_type, s.parent_season_id, s.starts_on
         from crossguns.fixtures f
         join crossguns.seasons s on s.season_id = f.season_id
        where f.player_a_id = ${playerId} or f.player_b_id = ${playerId}
@@ -743,11 +888,23 @@ async function handleGetPlayerSeasons(req: Request): Promise<Response> {
   return jsonResponse({
     success: true,
     playerId,
-    seasons: (rows as unknown as Array<{ season_id: string; name: string; is_current: boolean; competition_type: string }>).map((r) => ({
+    seasons: rows.map((r) => ({
       seasonId: r.season_id,
+      compId: r.season_id,
       name: r.name,
       isCurrent: r.is_current,
       competitionType: r.competition_type,
+      parentSeasonId: r.parent_season_id,
+      parentCompId: r.parent_season_id,
+    })),
+    competitions: rows.map((r) => ({
+      seasonId: r.season_id,
+      compId: r.season_id,
+      name: r.name,
+      isCurrent: r.is_current,
+      competitionType: r.competition_type,
+      parentSeasonId: r.parent_season_id,
+      parentCompId: r.parent_season_id,
     })),
   });
 }
@@ -764,7 +921,6 @@ async function handleGetLeaguesPublic(): Promise<Response> {
   });
 }
 
-const KNOCKOUT_GROUP_ID = "ko";
 
 async function ensureKnockoutSeasonGroup(seasonId: string): Promise<void> {
   const sql = db();
@@ -1190,17 +1346,23 @@ async function handleUpsertSeason(data: Record<string, unknown>): Promise<Respon
     data.competitionType ?? data.competition_type ?? "league",
   ).trim();
   const competitionType = competitionTypeRaw === "knockout" ? "knockout" : "league";
+  const parentSeasonId = data.parentSeasonId != null && data.parentSeasonId !== ""
+    ? String(data.parentSeasonId).trim()
+    : (data.parentCompId != null && data.parentCompId !== ""
+      ? String(data.parentCompId).trim()
+      : null);
 
   const sql = db();
   await sql`
-    insert into crossguns.seasons (season_id, name, starts_on, ends_on, is_current, competition_type)
-    values (${seasonId}, ${name}, ${startsOn}, ${endsOn}, ${isCurrent}, ${competitionType})
+    insert into crossguns.seasons (season_id, name, starts_on, ends_on, is_current, competition_type, parent_season_id)
+    values (${seasonId}, ${name}, ${startsOn}, ${endsOn}, ${isCurrent}, ${competitionType}, ${parentSeasonId})
     on conflict (season_id) do update set
       name = excluded.name,
       starts_on = excluded.starts_on,
       ends_on = excluded.ends_on,
       is_current = excluded.is_current,
       competition_type = excluded.competition_type,
+      parent_season_id = excluded.parent_season_id,
       updated_at = now()
   `;
   if (competitionType === "knockout") {
@@ -1236,6 +1398,121 @@ function parseNullableScore(raw: unknown): number | null {
   if (raw === undefined || raw === null || raw === "") return null;
   const n = Number(raw);
   return Number.isFinite(n) ? Math.trunc(n) : null;
+}
+
+const KO_STAGE_CAPS: Record<string, { max: number; label: string }> = {
+  L32: { max: 16, label: "Last 32" },
+  L16: { max: 8, label: "Last 16" },
+  QF: { max: 4, label: "Quarter-finals" },
+  SF: { max: 2, label: "Semi-finals" },
+  F: { max: 1, label: "Final" },
+};
+
+function parseKnockoutStageMatch(code: string): { stageId: string; matchNum: number } {
+  const c = code.trim();
+  if (!c) return { stageId: "", matchNum: 0 };
+
+  if (c === "F" || c === "F-P" || c === "F-C" || c === "KO Last 2") {
+    return { stageId: "F", matchNum: 1 };
+  }
+
+  const l32 = c.match(/^L32-(\d+)$/i);
+  if (l32) return { stageId: "L32", matchNum: parseInt(l32[1], 10) };
+
+  const l16 = c.match(/^L16-(\d+)$/i);
+  if (l16) return { stageId: "L16", matchNum: parseInt(l16[1], 10) };
+
+  const qf = c.match(/^QF(\d+)$/i);
+  if (qf) return { stageId: "QF", matchNum: parseInt(qf[1], 10) };
+
+  const sf = c.match(/^SF(\d+)$/i);
+  if (sf) return { stageId: "SF", matchNum: parseInt(sf[1], 10) };
+
+  if (c === "KO Last 8") return { stageId: "QF", matchNum: 1 };
+  if (c === "KO Last 4") return { stageId: "SF", matchNum: 1 };
+  if (c === "KO Last 16") return { stageId: "L16", matchNum: 1 };
+
+  const koLast = c.match(/^KO Last (\d+)$/i);
+  if (koLast) {
+    const n = parseInt(koLast[1], 10);
+    if (n === 16) return { stageId: "L16", matchNum: 1 };
+    if (n === 8) return { stageId: "QF", matchNum: 1 };
+    if (n === 4) return { stageId: "SF", matchNum: 1 };
+    if (n === 2) return { stageId: "F", matchNum: 1 };
+  }
+
+  const po = c.match(/^PO(\d+)$/i);
+  if (po) return { stageId: "L32", matchNum: parseInt(po[1], 10) };
+  if (/^KO Pre-/i.test(c)) return { stageId: "L32", matchNum: 1 };
+
+  return { stageId: "", matchNum: 0 };
+}
+
+function codeForKnockoutStageMatch(stageId: string, matchNum: number): string {
+  const stage = stageId.trim();
+  const n = Math.trunc(matchNum);
+  if (!stage || !Number.isFinite(n) || n < 1) return "";
+  if (stage === "F") return "F";
+  if (stage === "SF") return `SF${n}`;
+  if (stage === "QF") return `QF${n}`;
+  if (stage === "L16") return `L16-${n}`;
+  if (stage === "L32") return `L32-${n}`;
+  return "";
+}
+
+async function validateKnockoutFixtureRound(
+  sql: ReturnType<typeof postgres>,
+  seasonId: string,
+  roundLabel: string,
+  fixtureId: string,
+): Promise<Response | null> {
+  const parsed = parseKnockoutStageMatch(roundLabel);
+  if (!parsed.stageId) {
+    return errorResponse(`Unknown knockout round code: ${roundLabel}`);
+  }
+  const cap = KO_STAGE_CAPS[parsed.stageId];
+  if (!cap) {
+    return errorResponse(`Unknown knockout stage: ${parsed.stageId}`);
+  }
+  if (parsed.matchNum < 1 || parsed.matchNum > cap.max) {
+    return errorResponse(`${cap.label} only allows match numbers 1–${cap.max}.`);
+  }
+
+  const canonical = codeForKnockoutStageMatch(parsed.stageId, parsed.matchNum);
+  if (!canonical || canonical !== roundLabel) {
+    return errorResponse(
+      `Round code must be ${canonical} for ${cap.label} match ${parsed.matchNum}.`,
+    );
+  }
+
+  const rows = await sql<{ fixture_id: string; round_label: string }[]>`
+    select fixture_id, round_label
+      from crossguns.fixtures
+     where season_id = ${seasonId}
+       and stage = 'knockout'
+  `;
+
+  let countInStage = 0;
+  for (const r of rows as unknown as { fixture_id: string; round_label: string }[]) {
+    if (fixtureId && r.fixture_id === fixtureId) continue;
+    if (r.round_label === roundLabel) {
+      return errorResponse(`A fixture already exists for ${roundLabel}.`);
+    }
+    const other = parseKnockoutStageMatch(r.round_label);
+    if (other.stageId !== parsed.stageId) continue;
+    countInStage++;
+    if (other.matchNum === parsed.matchNum) {
+      return errorResponse(`${cap.label} match ${parsed.matchNum} is already used.`);
+    }
+  }
+
+  if (!fixtureId && countInStage >= cap.max) {
+    return errorResponse(
+      `Maximum ${cap.max} fixture${cap.max === 1 ? "" : "s"} allowed for ${cap.label}.`,
+    );
+  }
+
+  return null;
 }
 
 async function handleUpsertFixture(data: Record<string, unknown>): Promise<Response> {
@@ -1277,6 +1554,12 @@ async function handleUpsertFixture(data: Record<string, unknown>): Promise<Respo
   if (!Number.isFinite(sortOrder)) return errorResponse("sortOrder must be a number");
 
   const sql = db();
+  if (stage === "knockout") {
+    const koErr = await validateKnockoutFixtureRound(sql, seasonId, roundLabel, fixtureId);
+    if (koErr) return koErr;
+  }
+  await ensureWinnerOfPlayers(sql, playerAId, playerBId);
+  await assertFixturePlayersExist(sql, playerAId, playerBId);
   const sa = scoreA === null ? null : Math.trunc(scoreA);
   const sb = scoreB === null ? null : Math.trunc(scoreB);
   const so = Math.trunc(sortOrder);

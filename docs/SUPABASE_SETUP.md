@@ -97,6 +97,7 @@ up with all-zero rows.
 | `scripts/migrate-sheets-to-supabase.mjs`         | One-shot data migration from the legacy Google Sheets.           |
 | `scripts/verify-migration.mjs`                   | Smoke test for each Edge Function action.                        |
 | `docs/plans/`                                    | Architectural plans (versioned alongside the code).              |
+| `docs/SUPABASE_MULTI_SCHEMA_MIGRATIONS.md`       | Shared-project / multi-schema migration strategy (Apps + ierne). |
 
 ## API contract
 
@@ -164,6 +165,9 @@ If you ever need to recreate this from a fresh Supabase project:
    - `supabase db push` (CLI, after `supabase link --project-ref <ref>`), or
    - use the `apply_migration` MCP tool with the SQL in
      `supabase/migrations/`.
+   - On the shared **Apps** project, `db push` from this repo often fails
+     because ierne-snooker uses the same project; see
+     [`SUPABASE_MULTI_SCHEMA_MIGRATIONS.md`](SUPABASE_MULTI_SCHEMA_MIGRATIONS.md).
 
 2. **Deploy the function** (required after any change to `index.ts`):
    - `supabase functions deploy crossguns-api --no-verify-jwt`, or

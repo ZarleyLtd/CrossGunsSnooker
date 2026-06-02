@@ -43,11 +43,7 @@
           <li><a href="handicaps.html" target="_self">Handicaps</a></li>
           <li><a href="rules.html" target="_self">Rules</a></li>
           <li><button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-league-seasons.html" target="_self">Manage League Seasons</a></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
         </ul>
       </nav>
     </header>
@@ -74,10 +70,6 @@
             <p id="adminPlayerMsg" class="msg" hidden></p>
 
             <form id="adminPlayerForm">
-              <div class="admin-form-group">
-                <label for="adminPlayerId">Player id (leave blank to auto from name)</label>
-                <input type="text" id="adminPlayerId" />
-              </div>
               <div class="admin-form-group">
                 <label for="adminPlayerName">Name</label>
                 <input type="text" id="adminPlayerName" required />
@@ -126,10 +118,10 @@
 
             <div id="adminPlayerSeasonsSection" class="admin-player-seasons-section" hidden>
               <div class="admin-section-header admin-player-seasons-section__header">
-                <h2 class="admin-player-seasons-section__heading">Seasons</h2>
+                <h2 class="admin-player-seasons-section__heading">Comps</h2>
               </div>
               <div id="adminPlayerSeasonsList" class="admin-player-picks admin-item-list">
-                <p class="admin-player-picks__hint"><em>Not on any season roster.</em></p>
+                <p class="admin-player-picks__hint"><em>Not on any comp roster.</em></p>
               </div>
             </div>
           </div>

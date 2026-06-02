@@ -13,11 +13,20 @@
     <link rel="icon" type="image/png" sizes="32x32" href="assets/images/favicon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="assets/images/favicon-180.png" />
     <link rel="stylesheet" href="assets/css/style.css" />
+    <style>#filter-container.league-filter:not(.filters-visible),html.crossguns-knockout-comp #filter-container{display:none!important}</style>
+    <script>
+      try {
+        if (sessionStorage.getItem('crossgunsCurrentSeasonType') === 'knockout') {
+          document.documentElement.classList.add('crossguns-knockout-comp');
+        }
+      } catch (e) {}
+    </script>
     <noscript><style>img[loading] { opacity: 1; }</style></noscript>
     <script src="assets/js/config/app-config.js"></script>
     <script src="assets/js/utils/api-client.js"></script>
     <script src="assets/js/utils/current-competition.js"></script>
     <script src="assets/js/utils/nav-competition.js"></script>
+    <script src="assets/js/utils/league-group-filter.js"></script>
     <script src="assets/js/utils/admin-mode.js"></script>
     <script src="assets/js/utils/formatters.js"></script>
     <script src="assets/js/utils/image-loader.js"></script>
@@ -49,11 +58,7 @@
           <li><a href="handicaps.html" target="_self">Handicaps</a></li>
           <li><a href="rules.html" target="_self">Rules</a></li>
           <li><button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-league-seasons.html" target="_self">Manage League Seasons</a></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
         </ul>
       </nav>
     </header>
@@ -70,12 +75,7 @@
           </figure>
         </div>
         <div class="entry-wrapper content__entry">
-          <div id="filter-container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 0.25rem; width: 100%; max-width: 600px; margin: 1em auto; padding: 0 12px; box-sizing: border-box; font-family: sans-serif; font-size: 0.875rem;">
-            <label class="league-label" style="padding: 1px 3px; border: 1px solid transparent; cursor: pointer; white-space: nowrap;"><input type="radio" name="league" value="All" checked> All</label>
-            <label class="league-label" style="padding: 1px 3px; border: 1px solid transparent; cursor: pointer; white-space: nowrap;"><input type="radio" name="league" value="1"> Group 1</label>
-            <label class="league-label" style="padding: 1px 3px; border: 1px solid transparent; cursor: pointer; white-space: nowrap;"><input type="radio" name="league" value="2"> Group 2</label>
-            <label class="league-label" style="padding: 1px 3px; border: 1px solid transparent; cursor: pointer; white-space: nowrap;"><input type="radio" name="league" value="3"> Group 3</label>
-          </div>
+          <div id="filter-container" class="league-filter" hidden aria-label="Filter by group"></div>
           <div id="breaks-output" style="max-width: 600px; margin: 1em auto; text-align: left; font-family: sans-serif; line-height: 1.6;">Loading&hellip;</div>
         </div>
       </article>

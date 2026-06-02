@@ -4,14 +4,6 @@ var FixturesPage = {
   /** Dispatched on successful Save from the Enter result dialog (fixtures or results page). */
   RESULT_SAVED_EVENT: 'crossguns-fixture-result-saved',
 
-  KO_LABELS: {
-    CS: 'Championship Semis',
-    CF: 'Championship Final',
-    PQ: 'Plate Quarters',
-    PS: 'Plate Semis',
-    PF: 'Plate Final',
-  },
-
   /** Frames in a match (one rack icon per frame per player; each frame awarded once). */
   FRAME_RACK_COUNT: 3,
   _loadedBreakIds: [],
@@ -53,48 +45,84 @@ var FixturesPage = {
     });
 
     window.addEventListener(CurrentCompetition.EVENT_NAME, function () {
-      self.render().catch(function (e) {
+      self.refreshFilterAndRender().catch(function (e) {
         console.error(e);
       });
     });
 
-    this.bindLeagueFilter();
+    if (typeof LeagueGroupFilter !== 'undefined') {
+      LeagueGroupFilter.bindChange(function () {
+        self.render().catch(function (e) {
+          console.error(e);
+        });
+      });
+    }
     this.bindResultDialog();
     await CurrentCompetition.whenReady(function () {
-      return self.render();
+      return self.refreshFilterAndRender();
     });
   },
 
-  bindLeagueFilter: function () {
-    var self = this;
-    document.querySelectorAll('input[name="league"]').forEach(function (rb) {
-      rb.addEventListener('change', function () {
-        self.highlightSelectedLeague();
-        self.render().catch(function (e) { console.error(e); });
-      });
+  unplayedFixtures: function (fixtures) {
+    return (fixtures || []).filter(function (r) {
+      var notPlayed = !r['Result'] || String(r['Result']).trim() === '';
+      return notPlayed && r['Game Week'] && r['Player A'] && r['Player B'];
     });
-    this.highlightSelectedLeague();
   },
 
-  highlightSelectedLeague: function () {
-    var selected = document.querySelector('input[name="league"]:checked');
-    if (!selected) return;
-    document.querySelectorAll('.league-label').forEach(function (label) {
-      var input = label.querySelector('input[name="league"]');
-      if (input && input.value === selected.value) {
-        label.style.fontWeight = 'bold';
-        label.style.border = '3px solid green';
-        label.style.borderRadius = '4px';
-      } else {
-        label.style.fontWeight = 'normal';
-        label.style.border = '1px solid transparent';
+  knockoutFixturesWithParticipants: function (fixtures) {
+    return (fixtures || []).filter(function (r) {
+      return r['Game Week'] && r['Player A'] && r['Player B'];
+    });
+  },
+
+  /**
+   * When the league stage has no unplayed fixtures but a linked knockout comp has
+   * fixtures, show that knockout as the Now Showing comp (fixtures page only).
+   * @returns {Promise<boolean>} true if season was switched (caller should re-render)
+   */
+  maybePromoteToAssociatedKnockout: async function () {
+    var season = CurrentCompetition.get();
+    if (!season || CurrentCompetition.isKnockout()) return false;
+
+    var ko = CurrentCompetition.findAssociatedKnockout(season);
+    if (!ko) return false;
+
+    var leagueId = CurrentCompetition.getSeasonId();
+    if (!leagueId) return false;
+
+    var koId = ko.seasonId || ko.compId;
+    if (!koId) return false;
+
+    try {
+      var leagueResult = await ApiClient.get({ action: 'getFixtures', season: leagueId });
+      if (this.unplayedFixtures(leagueResult.fixtures || []).length > 0) {
+        return false;
       }
-    });
+
+      var koResult = await ApiClient.get({ action: 'getFixtures', season: koId });
+      if (this.knockoutFixturesWithParticipants(koResult.fixtures || []).length === 0) {
+        return false;
+      }
+
+      return CurrentCompetition.setSeasonId(koId, { allowKnockoutStage: true });
+    } catch (e) {
+      console.error('maybePromoteToAssociatedKnockout failed:', e);
+      return false;
+    }
+  },
+
+  refreshFilterAndRender: async function () {
+    if (typeof LeagueGroupFilter !== 'undefined') {
+      await LeagueGroupFilter.sync();
+    }
+    return this.render();
   },
 
   selectedLeague: function () {
-    var el = document.querySelector('input[name="league"]:checked');
-    return el ? el.value : 'All';
+    return typeof LeagueGroupFilter !== 'undefined'
+      ? LeagueGroupFilter.selected()
+      : 'All';
   },
 
   bindResultDialog: function () {
@@ -354,16 +382,27 @@ var FixturesPage = {
     if (!container) return;
 
     try {
+      if (await this.maybePromoteToAssociatedKnockout()) {
+        return;
+      }
+
       var result = await ApiClient.get(
         Object.assign({ action: 'getFixtures' }, CurrentCompetition.apiParams())
       );
       var data = result.fixtures || [];
 
-      var league = this.selectedLeague();
-      var upcoming = data.filter(function (r) {
-        var notPlayed = !r['Result'] || String(r['Result']).trim() === '';
-        var hasParticipants = r['Game Week'] && r['Player A'] && r['Player B'];
-        if (!notPlayed || !hasParticipants) return false;
+      var isKnockout =
+        typeof CurrentCompetition !== 'undefined' && CurrentCompetition.isKnockout();
+      if (typeof NavCompetition !== 'undefined') {
+        NavCompetition.syncLeagueFilters(isKnockout);
+      }
+
+      var league = isKnockout ? 'All' : this.selectedLeague();
+      var upcoming = this.unplayedFixtures(data).filter(function (r) {
+        if (!isKnockout) {
+          var stage = String(r['Stage'] || '').toLowerCase();
+          if (stage === 'knockout') return false;
+        }
         if (league === 'All') return true;
         return String(r['League']) === league;
       });
@@ -373,8 +412,22 @@ var FixturesPage = {
         return;
       }
 
-      var grouped = this.groupByGameWeek(upcoming);
-      this.renderGroups(container, grouped.grouped, grouped.orderedWeeks);
+      var winnersByCode = {};
+      var sectionLabels = null;
+      var grouped;
+      if (isKnockout && typeof KnockoutRounds !== 'undefined') {
+        winnersByCode = KnockoutRounds.buildRoundWinnersMap(data);
+        var koGroup = KnockoutRounds.groupForList(upcoming);
+        grouped = { grouped: koGroup.grouped, orderedWeeks: koGroup.orderedKeys };
+        sectionLabels = koGroup.labels;
+      } else {
+        grouped = this.groupByGameWeek(upcoming);
+      }
+      this.renderGroups(container, grouped.grouped, grouped.orderedWeeks, {
+        isKnockout: isKnockout,
+        winnersByCode: winnersByCode,
+        sectionLabels: sectionLabels,
+      });
     } catch (error) {
       console.error('Failed to load fixtures:', error);
       container.innerHTML = '<p><em>Error loading fixtures.</em></p>';
@@ -395,16 +448,55 @@ var FixturesPage = {
     return { grouped: grouped, orderedWeeks: orderedWeeks };
   },
 
-  renderGroups: function (container, grouped, orderedWeeks) {
+  knockoutWeekLabel: function (week) {
+    if (typeof KnockoutRounds !== 'undefined') {
+      return KnockoutRounds.labelFor(week);
+    }
+    return week;
+  },
+
+  knockoutPlayerLabel: function (match, slot, winnersByCode) {
+    if (typeof KnockoutRounds !== 'undefined') {
+      return KnockoutRounds.resolvedPlayerName(match, slot, winnersByCode);
+    }
+    return slot === 'a' ? match['Player A'] || '' : match['Player B'] || '';
+  },
+
+  fixtureResultReady: function (match, isKnockout, winnersByCode) {
+    if (!isKnockout) return true;
+    if (typeof KnockoutRounds === 'undefined') return true;
+    winnersByCode = winnersByCode || {};
+
+    function slotReady(slot) {
+      var id = slot === 'a' ? match.playerAId : match.playerBId;
+      if (!KnockoutRounds.isWinnerOfPlayerId(id)) return true;
+      var code = KnockoutRounds.roundCodeFromWinnerOfId(id);
+      return !!(code && winnersByCode[code]);
+    }
+
+    var labelA = String(this.knockoutPlayerLabel(match, 'a', winnersByCode)).trim();
+    var labelB = String(this.knockoutPlayerLabel(match, 'b', winnersByCode)).trim();
+    return slotReady('a') && slotReady('b') && !!labelA && !!labelB;
+  },
+
+  renderGroups: function (container, grouped, orderedWeeks, options) {
     var self = this;
+    options = options || {};
+    var isKnockout = !!options.isKnockout;
+    var winnersByCode = options.winnersByCode || {};
     container.innerHTML = '';
 
     orderedWeeks.forEach(function (week) {
       var h3 = document.createElement('h3');
-      var num = parseInt(week, 10);
-      h3.textContent = isNaN(num)
-        ? self.KO_LABELS[week] || week
-        : 'Game Week ' + week;
+      if (isKnockout && options.sectionLabels) {
+        h3.textContent = options.sectionLabels[week] || self.knockoutWeekLabel(week);
+      } else if (isKnockout) {
+        h3.textContent = self.knockoutWeekLabel(week);
+      } else {
+        var num = parseInt(week, 10);
+        h3.textContent =
+          !isNaN(num) && String(num) === week ? 'Game Week ' + week : week;
+      }
       h3.style.marginTop = '1.5em';
       h3.style.marginBottom = '0.5em';
       h3.style.fontWeight = 'bold';
@@ -425,24 +517,32 @@ var FixturesPage = {
         div.setAttribute('data-fixture-id', fid);
         div.setAttribute('data-player-a-id', String(match.playerAId || '').trim());
         div.setAttribute('data-player-b-id', String(match.playerBId || '').trim());
-        div.setAttribute('data-player-a-name', match['Player A'] || '');
-        div.setAttribute('data-player-b-name', match['Player B'] || '');
+        var nameA = self.knockoutPlayerLabel(match, 'a', winnersByCode);
+        var nameB = self.knockoutPlayerLabel(match, 'b', winnersByCode);
+        if (!isKnockout) {
+          nameA = match['Player A'] || '';
+          nameB = match['Player B'] || '';
+        }
+        div.setAttribute('data-player-a-name', nameA);
+        div.setAttribute('data-player-b-name', nameB);
         div.setAttribute('data-match-date', match['Match Date'] || '');
+        var resultReady = self.fixtureResultReady(match, isKnockout, winnersByCode);
+        div.setAttribute('data-result-ready', resultReady ? 'true' : 'false');
 
         var playerA = document.createElement('span');
-        playerA.textContent = match['Player A'];
+        playerA.textContent = nameA;
         playerA.style.flex = '1';
         playerA.style.textAlign = 'right';
 
         var center;
-        if (self.isAdmin() && fid) {
+        if (self.isAdmin() && fid && resultReady) {
           center = document.createElement('button');
           center.type = 'button';
           center.className = 'fixture-vs-btn';
           center.textContent = 'V';
           center.setAttribute(
             'aria-label',
-            'Enter result for ' + match['Player A'] + ' vs ' + match['Player B']
+            'Enter result for ' + nameA + ' vs ' + nameB
           );
           center.addEventListener('click', function () {
             self.openResultDialog(div);
@@ -451,11 +551,17 @@ var FixturesPage = {
           center = document.createElement('span');
           center.className = 'fixture-vs-static';
           center.textContent = 'V';
+          if (self.isAdmin() && fid && !resultReady) {
+            center.setAttribute(
+              'title',
+              'Result entry is available once both players are known'
+            );
+          }
         }
         center.style.flex = '0 0 auto';
 
         var playerB = document.createElement('span');
-        playerB.textContent = match['Player B'];
+        playerB.textContent = nameB;
         playerB.style.flex = '1';
         playerB.style.textAlign = 'left';
 

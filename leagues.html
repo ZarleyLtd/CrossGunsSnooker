@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en-gb">
   <head>
     <meta charset="utf-8" />
@@ -35,8 +35,9 @@
     <script defer src="assets/js/main.js"></script>
     <style>
       .standings-wrapper { max-width: 540px; margin: 1.5em auto; }
-      .standings-heading { text-align: center; margin-bottom: 0.25em; }
-      .league-standings { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace; white-space: pre; padding: 0.75em 1em; margin: 0 auto; max-width: 460px; overflow-x: auto; }
+      .standings-heading { text-align: left; font-size: 1.4em; font-weight: 600; margin: 0.5em 0 0.3em 0; color: #fff; }
+      .league-standings { display: inline-block; background-color: #111; color: #fff; font-family: "Courier New", ui-monospace, monospace; font-size: 0.95em; line-height: 1.3; padding: 1em; border-radius: 6px; margin: 0 auto 1em auto; text-align: left; white-space: pre; max-width: 100%; overflow-x: auto; box-sizing: border-box; }
+      .standings-wrapper pre { margin-left: 0 !important; padding-left: 0 !important; }
     </style>
   </head>
   <body class="page-template">
@@ -57,11 +58,7 @@
           <li><a href="handicaps.html" target="_self">Handicaps</a></li>
           <li><a href="rules.html" target="_self">Rules</a></li>
           <li><button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-league-seasons.html" target="_self">Manage League Seasons</a></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
         </ul>
       </nav>
     </header>
@@ -78,17 +75,9 @@
           </figure>
         </div>
         <div class="entry-wrapper content__entry">
-          <div class="standings-wrapper">
-            <h2 class="standings-heading">Group 1</h2>
-            <pre id="league-a" class="league-standings" aria-label="Group 1 standings">Loading...</pre>
-          </div>
-          <div class="standings-wrapper">
-            <h2 class="standings-heading">Group 2</h2>
-            <pre id="league-b" class="league-standings" aria-label="Group 2 standings">Loading...</pre>
-          </div>
-          <div class="standings-wrapper">
-            <h2 class="standings-heading">Group 3</h2>
-            <pre id="league-c" class="league-standings" aria-label="Group 3 standings">Loading...</pre>
+          <p id="page-competition-name" class="align-center" style="color:#169179;font-weight:600;margin-bottom:1rem;"></p>
+          <div id="leagues-standings-root">
+            <p class="align-center"><em>Loading standings…</em></p>
           </div>
         </div>
       </article>

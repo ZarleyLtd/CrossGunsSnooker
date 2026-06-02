@@ -1,8 +1,10 @@
-// Updates nav links based on the selected current competition.
+// Updates nav links based on the now-showing competition.
 
 var NavCompetition = {
   init: function () {
     var self = this;
+    this.syncLeagueFiltersFromSession();
+    if (typeof CurrentCompetition === 'undefined') return;
     CurrentCompetition.whenReady(function () {
       self.apply();
     });
@@ -11,47 +13,76 @@ var NavCompetition = {
     });
   },
 
+  syncLeagueFiltersFromSession: function () {
+    try {
+      if (sessionStorage.getItem('crossgunsCurrentSeasonType') === 'knockout') {
+        this.syncLeagueFilters(true);
+        this.syncStandingsNav(true);
+      }
+    } catch (_e) {
+      /* ignore */
+    }
+  },
+
+  syncStandingsNav: function (hide) {
+    document.querySelectorAll('.nav-item-standings').forEach(function (li) {
+      li.hidden = hide;
+      if (hide) li.setAttribute('aria-hidden', 'true');
+      else li.removeAttribute('aria-hidden');
+    });
+    document.querySelectorAll('.footer-standings-link').forEach(function (link) {
+      var li = link.closest('li');
+      if (!li) return;
+      li.hidden = hide;
+      if (hide) li.setAttribute('aria-hidden', 'true');
+      else li.removeAttribute('aria-hidden');
+    });
+  },
+
+  syncLeagueFilters: function (hide) {
+    var filterContainer = document.getElementById('filter-container');
+    if (!filterContainer) return;
+
+    if (hide) {
+      filterContainer.classList.remove('filters-visible');
+      filterContainer.hidden = true;
+      filterContainer.setAttribute('aria-hidden', 'true');
+      document.documentElement.classList.add('crossguns-knockout-comp');
+    } else {
+      filterContainer.classList.add('filters-visible');
+      filterContainer.hidden = false;
+      filterContainer.removeAttribute('aria-hidden');
+      document.documentElement.classList.remove('crossguns-knockout-comp');
+    }
+  },
+
   apply: function () {
     var season = CurrentCompetition.get();
     var isKnockout = CurrentCompetition.isKnockout();
 
     document.querySelectorAll('.nav-standings-link').forEach(function (link) {
-      if (isKnockout) {
-        link.href = 'knockout.html';
-        link.textContent = 'Knockout';
-      } else {
-        link.href = 'leagues.html';
-        link.textContent = 'Leagues';
-      }
+      link.href = 'leagues.html';
+      link.textContent = 'Leagues';
     });
 
     document.querySelectorAll('.footer-standings-link').forEach(function (link) {
-      if (isKnockout) {
-        link.href = 'knockout.html';
-        link.textContent = 'Knockout';
-      } else {
-        link.href = 'leagues.html';
-        link.textContent = 'Leagues';
-      }
+      link.href = 'leagues.html';
+      link.textContent = 'Leagues';
     });
 
-    var filterContainer = document.getElementById('filter-container');
-    if (filterContainer) {
-      filterContainer.hidden = isKnockout;
-      filterContainer.style.display = isKnockout ? 'none' : '';
-    }
+    this.syncLeagueFilters(isKnockout);
+    this.syncStandingsNav(isKnockout);
 
     var compLabel = document.getElementById('page-competition-name');
     if (compLabel && season) {
       compLabel.textContent = season.name || '';
     }
 
-    this.syncActiveNav(isKnockout);
+    this.syncActiveNav();
   },
 
-  syncActiveNav: function (isKnockout) {
+  syncActiveNav: function () {
     var path = (window.location.pathname || '').split('/').pop() || 'index.html';
-    var standingsPage = isKnockout ? 'knockout.html' : 'leagues.html';
 
     document.querySelectorAll('.navbar__menu > li').forEach(function (li) {
       li.classList.remove('active');
@@ -62,12 +93,6 @@ var NavCompetition = {
       var li = link.closest('li');
       if (!li) return;
       if (href === path) li.classList.add('active');
-      if (
-        (path === 'leagues.html' || path === 'knockout.html') &&
-        href === standingsPage
-      ) {
-        li.classList.add('active');
-      }
     });
   },
 };

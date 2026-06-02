@@ -1,15 +1,23 @@
-// Shared "current competition" context for public pages.
-// Several seasons can be marked isCurrent (e.g. league + knockout).
-// The selected season drives nav, fixtures, results, and home carousel.
+// Shared competition context for public pages.
+// Home carousel lists current comps except league knockout stages (shown on parent league card).
 
 var CurrentCompetition = (function () {
   var STORAGE_KEY = 'crossgunsCurrentSeasonId';
+  var STORAGE_TYPE_KEY = 'crossgunsCurrentSeasonType';
   var EVENT_NAME = 'crossguns-current-competition-changed';
 
   var _seasons = [];
   var _current = null;
   var _ready = false;
   var _initPromise = null;
+
+  function seasonIdOf(s) {
+    return s ? (s.seasonId || s.compId) : null;
+  }
+
+  function parentSeasonIdOf(s) {
+    return s ? (s.parentSeasonId || s.parentCompId || '') : '';
+  }
 
   function isKnockoutSeason(season) {
     if (!season) return false;
@@ -18,7 +26,7 @@ var CurrentCompetition = (function () {
       .toLowerCase();
     if (type === 'knockout') return true;
     if (type === 'league') return false;
-    var id = String(season.seasonId || season.season_id || '').toLowerCase();
+    var id = String(seasonIdOf(season) || '').toLowerCase();
     if (id.indexOf('knockout') !== -1 || id.indexOf('-ko') !== -1) return true;
     var name = String(season.name || '');
     if (/\bk\/o\b/i.test(name) || /knockout/i.test(name)) return true;
@@ -31,16 +39,75 @@ var CurrentCompetition = (function () {
     });
   }
 
+  function inferredParentSeasonId(knockoutSeason) {
+    if (!knockoutSeason || !isKnockoutSeason(knockoutSeason)) return '';
+    var explicit = String(parentSeasonIdOf(knockoutSeason)).trim();
+    if (explicit) return explicit;
+    var sid = String(seasonIdOf(knockoutSeason) || '');
+    var m = sid.match(/^(.+)-(ko|knockout)$/i);
+    if (!m) return '';
+    return m[1];
+  }
+
+  function isLeagueKnockoutStage(season) {
+    if (!season || !isKnockoutSeason(season)) return false;
+    if (String(parentSeasonIdOf(season)).trim()) return true;
+    var parentId = inferredParentSeasonId(season);
+    if (!parentId) return false;
+    var parent = findSeason(parentId);
+    return !!(parent && parent.isCurrent && !isKnockoutSeason(parent));
+  }
+
+  function carouselSeasons() {
+    return currentSeasons().filter(function (s) {
+      return !isLeagueKnockoutStage(s);
+    });
+  }
+
+  function normalizeNowShowingSeasonId(seasonId) {
+    if (!seasonId) return null;
+    var season = findSeason(seasonId);
+    if (!season || !season.isCurrent) return null;
+    if (!isLeagueKnockoutStage(season)) return seasonIdOf(season);
+    var parent = findSeason(parentSeasonIdOf(season) || inferredParentSeasonId(season));
+    if (parent && parent.isCurrent) return seasonIdOf(parent);
+    return null;
+  }
+
+  function findAssociatedKnockout(leagueSeason) {
+    if (!leagueSeason || isKnockoutSeason(leagueSeason)) return null;
+    var parentId = String(seasonIdOf(leagueSeason));
+    var list = (_seasons || []).filter(function (s) {
+      return s && s.isCurrent && isKnockoutSeason(s);
+    });
+    var linked = list.find(function (s) {
+      return String(parentSeasonIdOf(s)) === parentId;
+    });
+    if (linked) return linked;
+    var byConvention = list.find(function (s) {
+      return String(seasonIdOf(s)) === parentId + '-ko';
+    });
+    if (byConvention) return byConvention;
+    return (
+      list.find(function (s) {
+        return inferredParentSeasonId(s) === parentId;
+      }) || null
+    );
+  }
+
   function findSeason(seasonId) {
     if (!seasonId) return null;
-    return (_seasons || []).find(function (s) {
-      return String(s.seasonId) === String(seasonId);
-    }) || null;
+    return (
+      (_seasons || []).find(function (s) {
+        return String(seasonIdOf(s)) === String(seasonId);
+      }) || null
+    );
   }
 
   function readUrlSeasonId() {
     try {
-      return new URLSearchParams(window.location.search).get('season');
+      var p = new URLSearchParams(window.location.search);
+      return p.get('season') || p.get('comp');
     } catch (_e) {
       return null;
     }
@@ -63,24 +130,43 @@ var CurrentCompetition = (function () {
     }
   }
 
+  function writeStoredSeasonType(season) {
+    try {
+      if (season) {
+        sessionStorage.setItem(
+          STORAGE_TYPE_KEY,
+          isKnockoutSeason(season) ? 'knockout' : 'league'
+        );
+      } else {
+        sessionStorage.removeItem(STORAGE_TYPE_KEY);
+      }
+    } catch (_e) {
+      /* ignore */
+    }
+  }
+
+  function writeStoredSeasonMeta(season) {
+    writeStoredSeasonId(season ? seasonIdOf(season) : null);
+    writeStoredSeasonType(season);
+  }
+
   function defaultSeasonId() {
-    var active = currentSeasons();
+    var active = carouselSeasons();
     if (!active.length) return null;
     var league = active.find(function (s) {
       return !isKnockoutSeason(s);
     });
-    return (league || active[0]).seasonId;
+    return seasonIdOf(league || active[0]);
   }
 
   function pickInitialSeasonId() {
-    var active = currentSeasons();
-    if (!active.length) return null;
+    if (!carouselSeasons().length && !currentSeasons().length) return null;
 
-    var urlId = readUrlSeasonId();
-    if (urlId && findSeason(urlId) && findSeason(urlId).isCurrent) return urlId;
+    var urlId = normalizeNowShowingSeasonId(readUrlSeasonId());
+    if (urlId) return urlId;
 
-    var stored = readStoredSeasonId();
-    if (stored && findSeason(stored) && findSeason(stored).isCurrent) return stored;
+    var stored = normalizeNowShowingSeasonId(readStoredSeasonId());
+    if (stored) return stored;
 
     return defaultSeasonId();
   }
@@ -90,7 +176,7 @@ var CurrentCompetition = (function () {
       new CustomEvent(EVENT_NAME, {
         detail: {
           season: _current,
-          seasonId: _current ? _current.seasonId : null,
+          seasonId: _current ? seasonIdOf(_current) : null,
         },
       })
     );
@@ -101,6 +187,7 @@ var CurrentCompetition = (function () {
       var url = new URL(window.location.href);
       if (seasonId) url.searchParams.set('season', seasonId);
       else url.searchParams.delete('season');
+      url.searchParams.delete('comp');
       window.history.replaceState({}, '', url.toString());
     } catch (_e) {
       /* ignore */
@@ -114,13 +201,13 @@ var CurrentCompetition = (function () {
       if (_initPromise) return _initPromise;
       _initPromise = ApiClient.get({ action: 'getSeasons' })
         .then(function (res) {
-          _seasons = res.seasons || [];
+          _seasons = res.seasons || res.competitions || [];
           var id = pickInitialSeasonId();
           _current = id ? findSeason(id) : null;
           if (!_current && _seasons.length) {
             _current = findSeason(defaultSeasonId());
           }
-          writeStoredSeasonId(_current ? _current.seasonId : null);
+          writeStoredSeasonMeta(_current);
           _ready = true;
           dispatchChange();
           return _current;
@@ -143,13 +230,19 @@ var CurrentCompetition = (function () {
 
     currentSeasons: currentSeasons,
 
+    carouselSeasons: carouselSeasons,
+
+    isLeagueKnockoutStage: isLeagueKnockoutStage,
+
     get: function () {
       return _current;
     },
 
     getSeasonId: function () {
-      return _current ? _current.seasonId : null;
+      return _current ? seasonIdOf(_current) : null;
     },
+
+    findAssociatedKnockout: findAssociatedKnockout,
 
     isKnockoutSeason: isKnockoutSeason,
 
@@ -163,12 +256,16 @@ var CurrentCompetition = (function () {
 
     setSeasonId: function (seasonId, options) {
       var opts = options || {};
-      var next = findSeason(seasonId);
+      var id = opts.allowKnockoutStage
+        ? seasonId
+        : normalizeNowShowingSeasonId(seasonId) || seasonId;
+      var next = findSeason(id);
       if (!next || !next.isCurrent) return false;
-      if (_current && _current.seasonId === next.seasonId) return true;
+      if (!opts.allowKnockoutStage && isLeagueKnockoutStage(next)) return false;
+      if (_current && seasonIdOf(_current) === seasonIdOf(next)) return true;
       _current = next;
-      writeStoredSeasonId(next.seasonId);
-      if (opts.syncUrl !== false) syncUrl(next.seasonId);
+      writeStoredSeasonMeta(next);
+      if (opts.syncUrl !== false) syncUrl(seasonIdOf(next));
       dispatchChange();
       return true;
     },

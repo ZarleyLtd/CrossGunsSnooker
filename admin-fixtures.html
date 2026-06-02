@@ -59,21 +59,7 @@
           <li>
             <button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button>
           </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-fixtures.html" target="_self">Manage Fixtures</a>
-          </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a>
-          </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-players.html" target="_self">Manage Players</a>
-          </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-bulk-players.html" target="_self">Bulk Load Players</a>
-          </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-league-seasons.html" target="_self">Manage League Seasons</a>
-          </li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
         </ul>
       </nav>
     </header>
@@ -103,9 +89,10 @@
             <p id="adminFxMsg" class="msg" hidden></p>
             <div class="admin-fixtures-toolbar">
               <div class="admin-fixtures-toolbar__season">
-                <label for="adminFxSeason">Season</label>
+                <label for="adminFxSeason">Comp</label>
                 <select id="adminFxSeason"></select>
               </div>
+              <p id="adminFxCoherenceWarn" class="admin-fixtures-toolbar__warn msg msg--warning" hidden></p>
               <button type="button" class="btn admin-fixtures-add-btn" id="adminFxAddBtn">+ Add Fixture</button>
             </div>
             <div id="adminFxList" class="admin-fixtures-list"></div>
@@ -137,10 +124,6 @@
                   <p>
                     <label for="adminFxRound">Round</label><br />
                     <select id="adminFxRound"></select>
-                  </p>
-                  <p>
-                    <label for="adminFxRoundCustom">Custom round code</label><br />
-                    <input type="text" id="adminFxRoundCustom" hidden placeholder="e.g. PO5" />
                   </p>
                 </div>
                 <div class="admin-fixture-dialog__players">

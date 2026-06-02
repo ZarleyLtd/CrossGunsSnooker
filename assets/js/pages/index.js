@@ -1,12 +1,15 @@
-// Home Page — swipeable cards for each current competition.
-// League cards show group leaders; knockout cards show the full draw (latest round first).
+// Home Page — carousel cards for each current comp (league KO stages omitted; shown on parent league card).
 
 const IndexPage = {
-  TARGETS: { '1': 'g1-leader', '2': 'g2-leader', '3': 'g3-leader' },
   _carouselIndex: 0,
   _dragStartX: null,
   _dragActive: false,
   _swipeBound: false,
+  _controlsBound: false,
+
+  seasonIdOf: function (season) {
+    return season ? String(season.seasonId || season.compId || '') : '';
+  },
 
   viewport: function () {
     return document.getElementById('home-carousel-viewport');
@@ -21,33 +24,58 @@ const IndexPage = {
     return track ? track.querySelectorAll('.home-carousel__slide') : [];
   },
 
-  topPlayersLabel: function (rows) {
-    if (!rows || rows.length === 0) return 'N/A';
-    const leaders = rows.filter(function (r) {
-      return Formatters.toInt(r.Rank) === 1;
+  /** Standings groups that have at least one player (drops empty global leagues from API). */
+  standingsGroupsWithPlayers: function (st) {
+    var groups = (st && st.leagues) || (st && st.groups) || [];
+    return groups.filter(function (grp) {
+      return (grp.rows || []).length > 0;
     });
-    if (leaders.length === 0) return rows[0]['Player Name'] || 'N/A';
-    if (leaders.length === 1) return leaders[0]['Player Name'];
-    return leaders.map(function (r) { return r['Player Name']; }).join(' & ') + ' (tied)';
   },
 
-  buildLeagueCard: function (season, standingsByLeague) {
+  topPlayersLabel: function (rows) {
+    var sorted = LeagueStandings.sort(rows || []);
+    if (!sorted.length) return 'N/A';
+    var topPts = Formatters.toInt(sorted[0].Pts, 0);
+    var topPM = Formatters.toInt(sorted[0]['+/-'], 0);
+    var leaders = sorted.filter(function (r) {
+      return Formatters.toInt(r.Pts, 0) === topPts && Formatters.toInt(r['+/-'], 0) === topPM;
+    });
+    if (leaders.length === 0) return sorted[0]['Player Name'] || 'N/A';
+    if (leaders.length === 1) return leaders[0]['Player Name'];
+    return (
+      leaders
+        .map(function (r) {
+          return r['Player Name'];
+        })
+        .join(' & ') + ' (tied)'
+    );
+  },
+
+  buildLeagueCard: function (season, groups) {
     var card = document.createElement('article');
     card.className = 'home-comp-card home-comp-card--league';
-    card.setAttribute('data-season-id', season.seasonId);
+    card.setAttribute('data-season-id', this.seasonIdOf(season));
 
     var html = '';
-    html += '<h2 class="home-comp-card__title align-center"><span style="color:#169179;">' + this.esc(season.name) + '</span></h2>';
     html += '<p class="align-center home-comp-card__subtitle">League stage &mdash; current leaders</p>';
 
-    Object.keys(this.TARGETS).forEach(function (leagueId) {
-      var lg = standingsByLeague[leagueId] || { rows: [] };
-      var label = IndexPage.topPlayersLabel(lg.rows || []);
+    (groups || []).forEach(function (grp) {
+      var label = IndexPage.topPlayersLabel(grp.rows || []);
       html += '<div class="home-leader-group">';
-      html += '<h3 class="align-center"><span style="color:#169179;">Group ' + leagueId + '</span></h3>';
-      html += '<h3 class="align-center"><span class="home-comp-card__leader">' + IndexPage.esc(label) + '</span></h3>';
+      html +=
+        '<h3 class="align-center"><span style="color:#169179;">' +
+        IndexPage.esc(grp.name || grp.leagueId || grp.groupId) +
+        '</span></h3>';
+      html +=
+        '<h3 class="align-center"><span class="home-comp-card__leader">' +
+        IndexPage.esc(label) +
+        '</span></h3>';
       html += '</div>';
     });
+
+    if (!(groups || []).length) {
+      html += '<p class="align-center"><em>No groups yet</em></p>';
+    }
 
     card.innerHTML = html;
     return card;
@@ -56,46 +84,38 @@ const IndexPage = {
   buildKnockoutCard: function (season, fixtures) {
     var card = document.createElement('article');
     card.className = 'home-comp-card home-comp-card--knockout';
-    card.setAttribute('data-season-id', season.seasonId);
+    card.setAttribute('data-season-id', this.seasonIdOf(season));
 
-    var html = '';
-    html += '<h2 class="home-comp-card__title align-center"><span style="color:#169179;">' + this.esc(season.name) + '</span></h2>';
+    var bracket = document.createElement('div');
+    bracket.className = 'home-comp-card__bracket ko-bracket-page';
+    card.appendChild(bracket);
 
-    var rounds =
-      typeof KnockoutRounds !== 'undefined'
-        ? KnockoutRounds.groupFixtures(fixtures, true)
-        : [];
-
-    if (!rounds.length) {
-      html += '<p class="align-center home-comp-card__subtitle"><em>No fixtures yet</em></p>';
-      card.innerHTML = html;
-      return card;
+    if (typeof KnockoutBracket !== 'undefined') {
+      KnockoutBracket.render(bracket, fixtures, { stageNav: true });
+    } else if (typeof KnockoutRounds !== 'undefined' && typeof KnockoutRenderer !== 'undefined') {
+      var rounds = KnockoutRounds.groupFixtures(fixtures, true);
+      if (!rounds.length) {
+        bracket.innerHTML = '<p class="align-center"><em>No fixtures yet</em></p>';
+      } else {
+        rounds.forEach(function (round) {
+          var section = document.createElement('section');
+          section.className = 'knockout-round';
+          var heading = document.createElement('h3');
+          heading.className = 'knockout-round__heading align-center';
+          heading.textContent = round.label || round.code;
+          section.appendChild(heading);
+          var list = document.createElement('div');
+          list.className = 'knockout-round__matches';
+          round.matches.forEach(function (match) {
+            KnockoutRenderer.renderRow(list, match);
+          });
+          section.appendChild(list);
+          bracket.appendChild(section);
+        });
+      }
+    } else {
+      bracket.innerHTML = '<p class="align-center"><em>Bracket unavailable.</em></p>';
     }
-
-    html += '<p class="align-center home-comp-card__subtitle">Knockout draw</p>';
-    html += '<div class="home-comp-card__bracket"></div>';
-    card.innerHTML = html;
-
-    var bracket = card.querySelector('.home-comp-card__bracket');
-    rounds.forEach(function (round) {
-      var section = document.createElement('section');
-      section.className = 'knockout-round';
-
-      var heading = document.createElement('h3');
-      heading.className = 'knockout-round__heading align-center';
-      heading.textContent = round.label || round.code;
-      section.appendChild(heading);
-
-      var list = document.createElement('div');
-      list.className = 'knockout-round__matches';
-
-      round.matches.forEach(function (match) {
-        KnockoutRenderer.renderRow(list, match);
-      });
-
-      section.appendChild(list);
-      bracket.appendChild(section);
-    });
 
     return card;
   },
@@ -109,37 +129,46 @@ const IndexPage = {
   },
 
   loadCardData: async function (season) {
+    var sid = IndexPage.seasonIdOf(season);
     if (CurrentCompetition.isKnockoutSeason(season)) {
-      var fx = await ApiClient.get({ action: 'getFixtures', season: season.seasonId });
-      return IndexPage.buildKnockoutCard(season, fx.fixtures || []);
+      var fxKo = await ApiClient.get({ action: 'getFixtures', season: sid });
+      return IndexPage.buildKnockoutCard(season, fxKo.fixtures || []);
     }
 
-    var st = await ApiClient.get({ action: 'getStandings', season: season.seasonId });
-    var byId = {};
-    ((st && st.leagues) || []).forEach(function (lg) {
-      byId[String(lg.leagueId)] = lg;
-    });
-    return IndexPage.buildLeagueCard(season, byId);
+    var koComp = CurrentCompetition.findAssociatedKnockout(season);
+    if (koComp) {
+      var koFx = await ApiClient.get({
+        action: 'getFixtures',
+        season: IndexPage.seasonIdOf(koComp),
+      });
+      if ((koFx.fixtures || []).length) {
+        return IndexPage.buildKnockoutCard(season, koFx.fixtures || []);
+      }
+    }
+
+    var st = await ApiClient.get({ action: 'getStandings', season: sid });
+    return IndexPage.buildLeagueCard(season, IndexPage.standingsGroupsWithPlayers(st));
   },
 
   renderCarousel: async function () {
     var track = document.getElementById('home-carousel-track');
     var dots = document.getElementById('home-carousel-dots');
-    if (!track || !dots) return;
+    if (!track) return;
 
-    var seasons = CurrentCompetition.currentSeasons();
+    var comps = CurrentCompetition.carouselSeasons();
     track.innerHTML = '';
-    dots.innerHTML = '';
+    if (dots) dots.innerHTML = '';
 
-    if (!seasons.length) {
+    if (!comps.length) {
       track.innerHTML = '<p class="align-center"><em>No current competitions.</em></p>';
+      IndexPage.updateCompHeader();
       IndexPage.updateCarouselHint(0);
       return;
     }
 
     var cards = await Promise.all(
-      seasons.map(function (season) {
-        return IndexPage.loadCardData(season);
+      comps.map(function (comp) {
+        return IndexPage.loadCardData(comp);
       })
     );
 
@@ -149,24 +178,40 @@ const IndexPage = {
       slide.appendChild(card);
       track.appendChild(slide);
 
-      var dot = document.createElement('button');
-      dot.type = 'button';
-      dot.className = 'home-carousel__dot';
-      dot.setAttribute('aria-label', 'Show competition ' + (idx + 1));
-      dot.addEventListener('click', function () {
-        IndexPage.goToSlide(idx, true);
-      });
-      dots.appendChild(dot);
+      if (dots) {
+        var dot = document.createElement('button');
+        dot.type = 'button';
+        dot.className = 'home-carousel__dot';
+        dot.setAttribute('aria-label', 'Show competition ' + (idx + 1));
+        dot.addEventListener('click', function () {
+          IndexPage.goToSlide(idx, true);
+        });
+        dots.appendChild(dot);
+      }
     });
 
     var selectedId = CurrentCompetition.getSeasonId();
-    var startIdx = seasons.findIndex(function (s) {
-      return s.seasonId === selectedId;
+    var startIdx = comps.findIndex(function (c) {
+      return IndexPage.seasonIdOf(c) === selectedId;
     });
     IndexPage._carouselIndex = startIdx >= 0 ? startIdx : 0;
-    IndexPage.updateCarouselHint(seasons.length);
+    IndexPage.updateCompHeader();
+    IndexPage.updateCarouselHint(comps.length);
     IndexPage.bindCarouselControls();
     IndexPage.updateCarouselPosition(false);
+    IndexPage.relayoutKnockoutBrackets();
+  },
+
+  updateCompHeader: function () {
+    var el = document.getElementById('home-carousel-comp-title');
+    var comps = CurrentCompetition.carouselSeasons();
+    if (!el) return;
+    if (!comps.length) {
+      el.textContent = '';
+      return;
+    }
+    var comp = comps[IndexPage._carouselIndex];
+    el.textContent = comp && comp.name ? comp.name : '';
   },
 
   updateCarouselHint: function (seasonCount) {
@@ -176,8 +221,8 @@ const IndexPage = {
   },
 
   bindCarouselControls: function () {
-    if (IndexPage._swipeBound) return;
-    IndexPage._swipeBound = true;
+    if (IndexPage._controlsBound) return;
+    IndexPage._controlsBound = true;
 
     var prev = document.getElementById('home-carousel-prev');
     var next = document.getElementById('home-carousel-next');
@@ -191,6 +236,9 @@ const IndexPage = {
         IndexPage.goToSlide(IndexPage._carouselIndex + 1, true);
       });
     }
+
+    if (IndexPage._swipeBound) return;
+    IndexPage._swipeBound = true;
 
     var viewport = IndexPage.viewport();
     if (!viewport) return;
@@ -273,21 +321,29 @@ const IndexPage = {
   },
 
   updateArrows: function () {
-    var seasons = CurrentCompetition.currentSeasons();
+    var comps = CurrentCompetition.carouselSeasons();
     var prev = document.getElementById('home-carousel-prev');
     var next = document.getElementById('home-carousel-next');
-    var count = seasons.length;
+    var count = comps.length;
     var idx = IndexPage._carouselIndex;
 
     if (prev) {
       var showPrev = count > 1 && idx > 0;
+      prev.classList.toggle('is-unavailable', !showPrev);
       prev.hidden = !showPrev;
       prev.disabled = !showPrev;
+      if (prev.hasAttribute('aria-hidden')) {
+        prev.setAttribute('aria-hidden', showPrev ? 'false' : 'true');
+      }
     }
     if (next) {
       var showNext = count > 1 && idx < count - 1;
+      next.classList.toggle('is-unavailable', !showNext);
       next.hidden = !showNext;
       next.disabled = !showNext;
+      if (next.hasAttribute('aria-hidden')) {
+        next.setAttribute('aria-hidden', showNext ? 'false' : 'true');
+      }
     }
   },
 
@@ -297,10 +353,10 @@ const IndexPage = {
 
   goToSlide: function (index, syncCompetition) {
     var track = IndexPage.track();
-    var seasons = CurrentCompetition.currentSeasons();
-    if (!track || !seasons.length) return;
+    var comps = CurrentCompetition.carouselSeasons();
+    if (!track || !comps.length) return;
 
-    var max = seasons.length - 1;
+    var max = comps.length - 1;
     var next = Math.max(0, Math.min(index, max));
     if (next === IndexPage._carouselIndex && !syncCompetition) {
       IndexPage.syncViewportHeight();
@@ -311,7 +367,7 @@ const IndexPage = {
     IndexPage.updateCarouselPosition(true);
 
     if (syncCompetition) {
-      CurrentCompetition.setSeasonId(seasons[next].seasonId);
+      CurrentCompetition.setSeasonId(IndexPage.seasonIdOf(comps[next]));
     }
 
     IndexPage.scrollPageToTop();
@@ -341,6 +397,17 @@ const IndexPage = {
     window.requestAnimationFrame(function () {
       IndexPage.syncViewportHeight();
       IndexPage.updateArrows();
+      IndexPage.updateCompHeader();
+      IndexPage.relayoutKnockoutBrackets();
+    });
+  },
+
+  relayoutKnockoutBrackets: function () {
+    if (typeof KnockoutBracket === 'undefined' || !KnockoutBracket.relayout) return;
+    var slide = IndexPage.slides()[IndexPage._carouselIndex];
+    if (!slide) return;
+    slide.querySelectorAll('.home-comp-card__bracket').forEach(function (bracket) {
+      KnockoutBracket.relayout(bracket);
     });
   },
 
@@ -353,12 +420,20 @@ const IndexPage = {
     });
 
     window.addEventListener(CurrentCompetition.EVENT_NAME, function (ev) {
-      var seasons = CurrentCompetition.currentSeasons();
-      var idx = seasons.findIndex(function (s) {
-        return s.seasonId === (ev.detail && ev.detail.seasonId);
+      var comps = CurrentCompetition.carouselSeasons();
+      var detailId =
+        ev.detail && (ev.detail.seasonId || (ev.detail.season && IndexPage.seasonIdOf(ev.detail.season)));
+      var idx = comps.findIndex(function (c) {
+        return IndexPage.seasonIdOf(c) === detailId;
       });
       if (idx >= 0 && idx !== IndexPage._carouselIndex) {
         IndexPage.goToSlide(idx, false);
+        return;
+      }
+      if (idx >= 0) {
+        IndexPage.renderCarousel().catch(function (e) {
+          console.error(e);
+        });
       }
     });
   },

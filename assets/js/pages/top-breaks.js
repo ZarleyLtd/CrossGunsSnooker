@@ -1,7 +1,7 @@
 // Top Breaks Page - adjusted-break leaderboard for the current season.
 // Preserves the legacy CrossGuns UX:
 //   - Container id 'breaks-output' (filled with one <div> per break)
-//   - Radio filter (name="league") with values All / 1 / 2 / 3
+//   - Radio filter (name="league") built from current season groups (All + div ids)
 //   - Each entry shows the adjusted break in <strong>, then either
 //       [raw plus handicap]   when a positive handicap pushed the value up, or
 //       [actual break]        when the value was already >= 25 unaided.
@@ -17,28 +17,12 @@ const TopBreaksPage = {
     return Array.isArray(result.breaks) ? result.breaks : [];
   },
 
-  highlightSelected: function () {
-    const selected = document.querySelector('input[name="league"]:checked');
-    if (!selected) return;
-    document.querySelectorAll('.league-label').forEach(function (label) {
-      const input = label.querySelector('input[name="league"]');
-      if (input && input.value === selected.value) {
-        label.style.fontWeight = 'bold';
-        label.style.border = '3px solid green';
-        label.style.borderRadius = '4px';
-      } else {
-        label.style.fontWeight = 'normal';
-        label.style.border = '1px solid transparent';
-      }
-    });
-  },
-
   render: function () {
     const container = document.getElementById('breaks-output');
     if (!container) return;
 
-    const selectedEl = document.querySelector('input[name="league"]:checked');
-    const selected = selectedEl ? selectedEl.value : 'All';
+    const selected =
+      typeof LeagueGroupFilter !== 'undefined' ? LeagueGroupFilter.selected() : 'All';
 
     let visible = this._breaks.filter(function (b) {
       return Formatters.toInt(b['Break']) >= 25;
@@ -84,12 +68,11 @@ const TopBreaksPage = {
     const container = document.getElementById('breaks-output');
     if (!container) return;
 
-    document.querySelectorAll('input[name="league"]').forEach(function (rb) {
-      rb.addEventListener('change', function () {
+    if (typeof LeagueGroupFilter !== 'undefined') {
+      LeagueGroupFilter.bindChange(function () {
         TopBreaksPage.render();
-        TopBreaksPage.highlightSelected();
       });
-    });
+    }
 
     window.addEventListener(CurrentCompetition.EVENT_NAME, function () {
       TopBreaksPage.reload().catch(function (e) {
@@ -106,9 +89,14 @@ const TopBreaksPage = {
     const container = document.getElementById('breaks-output');
     if (!container) return;
     try {
+      if (typeof LeagueGroupFilter !== 'undefined') {
+        await LeagueGroupFilter.sync();
+      }
       this._breaks = await this.fetchData();
       this.render();
-      this.highlightSelected();
+      if (typeof LeagueGroupFilter !== 'undefined') {
+        LeagueGroupFilter.highlightSelected();
+      }
     } catch (err) {
       console.error('Failed to load top breaks:', err);
       container.textContent = 'Could not load top breaks. Please try again later.';

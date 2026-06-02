@@ -16,15 +16,25 @@
     <link rel="icon" type="image/png" sizes="96x96" href="assets/images/favicon-96.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="assets/images/favicon-180.png" />
     <link rel="stylesheet" href="assets/css/style.css" />
+    <style>#filter-container.league-filter:not(.filters-visible),html.crossguns-knockout-comp #filter-container{display:none!important}</style>
+    <script>
+      try {
+        if (sessionStorage.getItem('crossgunsCurrentSeasonType') === 'knockout') {
+          document.documentElement.classList.add('crossguns-knockout-comp');
+        }
+      } catch (e) {}
+    </script>
     <noscript><style>img[loading] { opacity: 1; }</style></noscript>
     <script src="assets/js/config/app-config.js"></script>
     <script src="assets/js/utils/api-client.js"></script>
     <script src="assets/js/utils/current-competition.js"></script>
     <script src="assets/js/utils/nav-competition.js"></script>
+    <script src="assets/js/utils/league-group-filter.js"></script>
     <script src="assets/js/utils/admin-mode.js"></script>
     <script src="assets/js/utils/formatters.js"></script>
     <script src="assets/js/utils/image-loader.js"></script>
     <script src="assets/js/components/league-standings.js"></script>
+    <script src="assets/js/utils/knockout-rounds.js"></script>
     <script src="assets/js/pages/index.js"></script>
     <script src="assets/js/pages/fixtures.js"></script>
     <script src="assets/js/pages/results.js"></script>
@@ -56,21 +66,7 @@
           <li>
             <button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button>
           </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-fixtures.html" target="_self">Manage Fixtures</a>
-          </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a>
-          </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-players.html" target="_self">Manage Players</a>
-          </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-bulk-players.html" target="_self">Bulk Load Players</a>
-          </li>
-          <li class="nav-admin-only" hidden aria-hidden="true">
-            <a href="admin-league-seasons.html" target="_self">Manage League Seasons</a>
-          </li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
         </ul>
       </nav>
     </header>
@@ -88,12 +84,7 @@
         </div>
         <div class="entry-wrapper content__entry">
           <p id="page-competition-name" class="align-center" style="color:#169179;font-weight:600;margin-bottom:1rem;"></p>
-          <div id="filter-container" class="league-filter">
-            <label class="league-label"><input type="radio" name="league" value="All" checked> All</label>
-            <label class="league-label"><input type="radio" name="league" value="1"> Group 1</label>
-            <label class="league-label"><input type="radio" name="league" value="2"> Group 2</label>
-            <label class="league-label"><input type="radio" name="league" value="3"> Group 3</label>
-          </div>
+          <div id="filter-container" class="league-filter" hidden aria-label="Filter by group"></div>
           <div id="fixtures-list" style="text-align: center; margin: 0 auto; max-width: 600px"></div>
           <p class="align-right"></p>
 
