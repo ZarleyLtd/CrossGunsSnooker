@@ -51,11 +51,7 @@ var CurrentCompetition = (function () {
 
   function isLeagueKnockoutStage(season) {
     if (!season || !isKnockoutSeason(season)) return false;
-    if (String(parentSeasonIdOf(season)).trim()) return true;
-    var parentId = inferredParentSeasonId(season);
-    if (!parentId) return false;
-    var parent = findSeason(parentId);
-    return !!(parent && parent.isCurrent && !isKnockoutSeason(parent));
+    return !!String(parentSeasonIdOf(season)).trim();
   }
 
   function carouselSeasons() {
@@ -69,7 +65,7 @@ var CurrentCompetition = (function () {
     var season = findSeason(seasonId);
     if (!season || !season.isCurrent) return null;
     if (!isLeagueKnockoutStage(season)) return seasonIdOf(season);
-    var parent = findSeason(parentSeasonIdOf(season) || inferredParentSeasonId(season));
+    var parent = findSeason(parentSeasonIdOf(season));
     if (parent && parent.isCurrent) return seasonIdOf(parent);
     return null;
   }
@@ -80,17 +76,9 @@ var CurrentCompetition = (function () {
     var list = (_seasons || []).filter(function (s) {
       return s && s.isCurrent && isKnockoutSeason(s);
     });
-    var linked = list.find(function (s) {
-      return String(parentSeasonIdOf(s)) === parentId;
-    });
-    if (linked) return linked;
-    var byConvention = list.find(function (s) {
-      return String(seasonIdOf(s)) === parentId + '-ko';
-    });
-    if (byConvention) return byConvention;
     return (
       list.find(function (s) {
-        return inferredParentSeasonId(s) === parentId;
+        return String(parentSeasonIdOf(s)) === parentId;
       }) || null
     );
   }

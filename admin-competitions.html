@@ -112,6 +112,10 @@
               <div id="adminCompKnockoutStagesList" class="admin-player-picks admin-item-list"></div>
             </div>
             <div id="adminCompKnockoutSection" class="admin-ls-knockout">
+              <p id="adminCompKnockoutLinkHint" class="admin-player-picks__hint" hidden></p>
+              <p id="adminCompKnockoutUnlinkRow" class="admin-ko-unlink-row" hidden>
+                <button type="button" class="btn btn-secondary" id="adminCompUnlinkKnockout">Unlink from league</button>
+              </p>
               <h3 class="admin-ls-manage__heading">Players</h3>
               <p class="admin-player-picks__hint">Tick players for this knockout comp (saved with Save Comp).</p>
               <div id="adminCompKnockoutPlayers" class="admin-player-picks admin-player-picks--inline"></div>
@@ -129,6 +133,52 @@
           </div>
           <p id="adminCompModalMsg" class="msg admin-modal__msg admin-modal__msg--below-actions" hidden></p>
         </form>
+      </div>
+    </div>
+
+    <div id="adminCompKoLinkModal" class="admin-modal admin-modal--dark admin-modal--group" role="dialog" aria-modal="true" aria-labelledby="adminCompKoLinkModalTitle" hidden>
+      <div class="admin-modal__dialog admin-modal__dialog--wide">
+        <div class="admin-modal__header">
+          <h2 id="adminCompKoLinkModalTitle">Add knockout stage</h2>
+          <button type="button" class="admin-modal__close" data-close="ko-link" aria-label="Close">&times;</button>
+        </div>
+        <div id="adminCompKoLinkChoose" class="admin-ko-link-choose">
+          <p class="admin-player-picks__hint">A league comp can have at most one linked knockout comp.</p>
+          <div class="admin-ko-link-choose__actions">
+            <button type="button" class="btn" id="adminCompKoLinkExistingBtn">Link existing knockout comp</button>
+            <button type="button" class="btn" id="adminCompKoLinkNewBtn">Create new knockout comp</button>
+          </div>
+        </div>
+        <div id="adminCompKoLinkExistingPanel" class="admin-ko-link-panel" hidden>
+          <p class="admin-player-picks__hint">Choose a standalone knockout comp to link to this league.</p>
+          <label for="adminCompKoLinkSelect">Knockout comp</label>
+          <select id="adminCompKoLinkSelect" class="admin-ko-link-select"></select>
+          <div class="admin-form-actions admin-form-actions--panel">
+            <button type="button" class="btn btn-secondary" data-ko-link-back>Back</button>
+            <button type="button" class="btn btn-save" id="adminCompKoLinkConfirm">Link comp</button>
+          </div>
+        </div>
+        <div id="adminCompKoLinkNewPanel" class="admin-ko-link-panel" hidden>
+          <p class="admin-player-picks__hint">Only players on this league comp are listed.</p>
+          <div class="admin-form-group">
+            <label for="adminCompKoNewName">Name</label>
+            <input type="text" id="adminCompKoNewName" required />
+          </div>
+          <div class="admin-form-group">
+            <label for="adminCompKoNewId">Comp id</label>
+            <input type="text" id="adminCompKoNewId" pattern="[-a-z0-9]+" />
+            <small>Lowercase letters, numbers, hyphens. Defaults to league id + “-ko”.</small>
+          </div>
+          <div class="admin-form-group">
+            <span class="admin-ls-label">Players</span>
+            <div id="adminCompKoNewPlayers" class="admin-player-picks admin-player-picks--inline"></div>
+          </div>
+          <div class="admin-form-actions admin-form-actions--panel">
+            <button type="button" class="btn btn-secondary" data-ko-link-back>Back</button>
+            <button type="button" class="btn btn-save" id="adminCompKoNewCreate">Create and link</button>
+          </div>
+        </div>
+        <p id="adminCompKoLinkModalMsg" class="msg admin-modal__msg admin-modal__msg--below-actions" hidden></p>
       </div>
     </div>
 

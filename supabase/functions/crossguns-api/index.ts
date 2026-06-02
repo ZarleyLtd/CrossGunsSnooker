@@ -330,7 +330,7 @@ function resolvedParentSeasonId(r: SeasonRow): string | null {
 }
 
 function mapSeasonRow(r: SeasonRow) {
-  const parentSeasonId = resolvedParentSeasonId(r);
+  const parentSeasonId = r.parent_season_id ?? null;
   return {
     seasonId: r.season_id,
     compId: r.season_id,
@@ -1353,6 +1353,18 @@ async function handleUpsertSeason(data: Record<string, unknown>): Promise<Respon
       : null);
 
   const sql = db();
+  if (competitionType === "knockout" && parentSeasonId) {
+    const conflict = await sql<{ season_id: string }[]>`
+      select season_id
+        from crossguns.seasons
+       where parent_season_id = ${parentSeasonId}
+         and season_id <> ${seasonId}
+       limit 1
+    `;
+    if ((conflict as unknown as { season_id: string }[]).length) {
+      return errorResponse("This league already has a linked knockout comp.");
+    }
+  }
   await sql`
     insert into crossguns.seasons (season_id, name, starts_on, ends_on, is_current, competition_type, parent_season_id)
     values (${seasonId}, ${name}, ${startsOn}, ${endsOn}, ${isCurrent}, ${competitionType}, ${parentSeasonId})

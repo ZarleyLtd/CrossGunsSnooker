@@ -738,7 +738,8 @@
   background: rgba(255, 255, 255, 0.06);
 }
 
-.admin-hc-list__delete {
+.admin-hc-list__delete,
+.admin-hc-list__side {
   flex-shrink: 0;
   align-self: center;
   justify-self: center;
@@ -757,6 +758,35 @@
   overflow: visible;
   -webkit-appearance: none;
   appearance: none;
+}
+
+.admin-ko-unlink-row {
+  margin: 0 0 0.75rem;
+}
+
+.admin-ko-link-choose__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.admin-ko-link-panel {
+  margin-top: 0.5rem;
+}
+
+.admin-ko-link-select {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 0.35rem 0 1rem;
+  padding: 0.45rem 0.5rem;
+  box-sizing: border-box;
+}
+
+.admin-form-actions--panel {
+  margin-top: 1rem;
+  justify-content: flex-end;
 }
 
 .admin-container .admin-hc-list__delete,

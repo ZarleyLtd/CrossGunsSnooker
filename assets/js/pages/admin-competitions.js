@@ -127,6 +127,22 @@ var AdminCompetitionsPage = (function () {
         groupsList: document.getElementById('adminCompGroupsList'),
         addGroup: document.getElementById('adminCompAddGroup'),
         knockoutPlayers: document.getElementById('adminCompKnockoutPlayers'),
+        knockoutLinkHint: document.getElementById('adminCompKnockoutLinkHint'),
+        knockoutUnlinkRow: document.getElementById('adminCompKnockoutUnlinkRow'),
+        unlinkKnockout: document.getElementById('adminCompUnlinkKnockout'),
+        koLinkModal: document.getElementById('adminCompKoLinkModal'),
+        koLinkModalMsg: document.getElementById('adminCompKoLinkModalMsg'),
+        koLinkChoose: document.getElementById('adminCompKoLinkChoose'),
+        koLinkExistingPanel: document.getElementById('adminCompKoLinkExistingPanel'),
+        koLinkNewPanel: document.getElementById('adminCompKoLinkNewPanel'),
+        koLinkExistingBtn: document.getElementById('adminCompKoLinkExistingBtn'),
+        koLinkNewBtn: document.getElementById('adminCompKoLinkNewBtn'),
+        koLinkSelect: document.getElementById('adminCompKoLinkSelect'),
+        koLinkConfirm: document.getElementById('adminCompKoLinkConfirm'),
+        koNewName: document.getElementById('adminCompKoNewName'),
+        koNewId: document.getElementById('adminCompKoNewId'),
+        koNewPlayers: document.getElementById('adminCompKoNewPlayers'),
+        koNewCreate: document.getElementById('adminCompKoNewCreate'),
         groupModal: document.getElementById('adminCompGroupModal'),
         groupModalMsg: document.getElementById('adminCompGroupModalMsg'),
         groupForm: document.getElementById('adminCompGroupForm'),
@@ -142,6 +158,9 @@ var AdminCompetitionsPage = (function () {
     },
 
     flashTarget: function () {
+      if (this.el.koLinkModal && this.el.koLinkModal.classList.contains('is-open') && this.el.koLinkModalMsg) {
+        return this.el.koLinkModalMsg;
+      }
       if (this.el.groupModal && this.el.groupModal.classList.contains('is-open') && this.el.groupModalMsg) {
         return this.el.groupModalMsg;
       }
@@ -219,8 +238,73 @@ var AdminCompetitionsPage = (function () {
       var parentId = this.activeCompId;
       if (!parentId) return [];
       return (this.competitions || []).filter(function (c) {
+        if (normalizeCompetitionType(c) !== 'knockout') return false;
         return String(parentCompIdOf(c)) === String(parentId);
       });
+    },
+
+    linkedKnockoutComp: function () {
+      var linked = this.childKnockoutComps();
+      return linked.length ? linked[0] : null;
+    },
+
+    linkableKnockoutComps: function () {
+      var parentId = String(this.activeCompId || '');
+      return (this.competitions || []).filter(function (c) {
+        if (normalizeCompetitionType(c) !== 'knockout') return false;
+        if (compIdOf(c) === parentId) return false;
+        return !String(parentCompIdOf(c)).trim();
+      });
+    },
+
+    leaguePlayersForPick: function () {
+      var seen = {};
+      var list = [];
+      (this.roster || []).forEach(function (r) {
+        var id = r && r.playerId;
+        if (!id || seen[id]) return;
+        seen[id] = true;
+        var global = (self.allPlayers || []).find(function (p) {
+          return p.playerId === id;
+        });
+        list.push({
+          playerId: id,
+          playerName: (global && global.playerName) || r.playerName || id,
+        });
+      });
+      list.sort(function (a, b) {
+        return String(a.playerName || '').localeCompare(String(b.playerName || ''), undefined, {
+          sensitivity: 'base',
+        });
+      });
+      return list;
+    },
+
+    updateAddKnockoutButton: function () {
+      if (!this.el.addKnockout) return;
+      this.el.addKnockout.hidden = !!(this.isLeagueType() && this.activeCompId && this.linkedKnockoutComp());
+    },
+
+    leagueNameForId: function (seasonId) {
+      var c = (this.competitions || []).find(function (x) {
+        return compIdOf(x) === seasonId;
+      });
+      return c ? c.name || seasonId : seasonId;
+    },
+
+    updateKnockoutLinkUi: function () {
+      var hint = this.el.knockoutLinkHint;
+      var row = this.el.knockoutUnlinkRow;
+      if (!hint && !row) return;
+      var parentId = this.editing ? parentCompIdOf(this.editing) : '';
+      var show = this.isKnockoutType() && !!parentId && !!this.activeCompId;
+      if (hint) {
+        hint.hidden = !show;
+        hint.textContent = show
+          ? 'Linked to league comp: ' + this.leagueNameForId(parentId) + '.'
+          : '';
+      }
+      if (row) row.hidden = !show;
     },
 
     renderKnockoutStages: function () {
@@ -229,72 +313,301 @@ var AdminCompetitionsPage = (function () {
       if (!box || !section) return;
       if (!this.isLeagueType() || !this.activeCompId) {
         section.hidden = true;
+        this.updateAddKnockoutButton();
         return;
       }
       section.hidden = false;
-      var children = this.childKnockoutComps();
+      var linked = this.linkedKnockoutComp();
       var me = this;
-      if (!children.length) {
+      this.updateAddKnockoutButton();
+      if (!linked) {
         box.innerHTML = '<p class="admin-player-picks__hint">No knockout stage linked yet.</p>';
         return;
       }
-      var items = children.map(function (c) {
-        return {
-          id: compIdOf(c),
-          name: c.name || compIdOf(c),
-          meta: typeLabel(normalizeCompetitionType(c)),
-          isCurrent: !!c.isCurrent,
-        };
-      });
-      this.renderActionList(box, items, {
-        onClick: function (id) {
+      box.innerHTML = [linked]
+        .map(function (c) {
+          var id = compIdOf(c);
+          var current = c.isCurrent ? ' admin-item-list__row--current' : '';
+          return (
+            '<div class="admin-hc-list__row">' +
+            '<button type="button" class="admin-player-picks__row admin-item-list__row admin-hc-list__main' +
+            current +
+            '" data-id="' +
+            esc(id) +
+            '">' +
+            '<span class="admin-player-picks__name">' +
+            esc(c.name || id) +
+            '</span>' +
+            '<span class="admin-item-list__meta">' +
+            esc(typeLabel(normalizeCompetitionType(c))) +
+            '</span></button>' +
+            '<button type="button" class="btn btn-secondary admin-hc-list__side" data-unlink-ko="' +
+            esc(id) +
+            '">Unlink</button>' +
+            '</div>'
+          );
+        })
+        .join('');
+      box.querySelectorAll('.admin-hc-list__main').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var id = btn.getAttribute('data-id');
           var child = me.competitions.find(function (x) {
             return compIdOf(x) === id;
           });
           if (child) me.openEdit(child);
-        },
+        });
+      });
+      box.querySelectorAll('[data-unlink-ko]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          me.unlinkKnockoutStage(btn.getAttribute('data-unlink-ko'));
+        });
       });
     },
 
-    addKnockoutStage: function () {
+    unlinkKnockoutStage: function (koCompId) {
       var me = this;
-      var parentId = me.activeCompId;
-      if (!parentId || !me.isLeagueType()) return;
-      var parentName = (me.el.cName && me.el.cName.value.trim()) || parentId;
-      var koId = parentId + '-ko';
-      var existing = me.competitions.find(function (c) {
-        return compIdOf(c) === koId;
+      var id = String(koCompId || '').trim();
+      if (!id) return;
+      var child = (me.competitions || []).find(function (c) {
+        return compIdOf(c) === id;
       });
-      if (existing) {
-        me.openEdit(existing);
+      if (!child || !parentCompIdOf(child)) return;
+      var label = child.name || id;
+      if (
+        !window.confirm(
+          'Unlink "' +
+            label +
+            '" from its league comp? It will become a standalone knockout comp.'
+        )
+      ) {
         return;
       }
-      if (me.el.addKnockout) me.el.addKnockout.disabled = true;
+      if (me.el.unlinkKnockout) me.el.unlinkKnockout.disabled = true;
+      ApiClient.post('upsertSeason', {
+        seasonId: id,
+        name: child.name || id,
+        competitionType: 'knockout',
+        parentSeasonId: '',
+        isCurrent: !!child.isCurrent,
+      })
+        .then(function () {
+          me.flash('Knockout comp unlinked.', false);
+          return me.loadCompetitions();
+        })
+        .then(function () {
+          if (me.activeCompId && me.isLeagueType()) {
+            me.renderKnockoutStages();
+            return;
+          }
+          var updated = me.competitions.find(function (c) {
+            return compIdOf(c) === id;
+          });
+          if (updated) {
+            me.editing = updated;
+            me.updateKnockoutLinkUi();
+            me.updateCompTypeField();
+          }
+        })
+        .catch(function (err) {
+          me.flash(err.message || String(err), true);
+        })
+        .finally(function () {
+          if (me.el.unlinkKnockout) me.el.unlinkKnockout.disabled = false;
+        });
+    },
+
+    showKoLinkPanel: function (panel) {
+      var choose = panel === 'choose';
+      var existing = panel === 'existing';
+      var isNew = panel === 'new';
+      if (this.el.koLinkChoose) this.el.koLinkChoose.hidden = !choose;
+      if (this.el.koLinkExistingPanel) this.el.koLinkExistingPanel.hidden = !existing;
+      if (this.el.koLinkNewPanel) this.el.koLinkNewPanel.hidden = !isNew;
+      if (this.el.koLinkModalMsg) this.el.koLinkModalMsg.hidden = true;
+    },
+
+    closeKoLinkModal: function () {
+      if (!this.el.koLinkModal) return;
+      this.el.koLinkModal.classList.remove('is-open');
+      this.el.koLinkModal.hidden = true;
+      if (this.el.koLinkModalMsg) this.el.koLinkModalMsg.hidden = true;
+    },
+
+    openKoLinkModal: function () {
+      var me = this;
+      if (me.linkedKnockoutComp()) return;
+      if (!me.activeCompId || !me.isLeagueType()) return;
+      var parentName = (me.el.cName && me.el.cName.value.trim()) || '';
+      if (!parentName) {
+        me.flash('Enter a league comp name before adding a knockout stage.', true);
+        return;
+      }
+      var defaultId = me.activeCompId + '-ko';
+      var taken = (me.competitions || []).some(function (c) {
+        return compIdOf(c) === defaultId;
+      });
+      if (me.el.koNewName) me.el.koNewName.value = parentName + ' Knockout';
+      if (me.el.koNewId) {
+        me.el.koNewId.value = taken ? uniqueCompId(defaultId, me.competitions) : defaultId;
+      }
+      me.fillKoNewPlayerCheckboxes();
+      me.populateKoLinkSelect();
+      var linkable = me.linkableKnockoutComps();
+      if (me.el.koLinkExistingBtn) {
+        me.el.koLinkExistingBtn.disabled = !linkable.length;
+      }
+      me.showKoLinkPanel('choose');
+      if (me.el.koLinkModal) {
+        me.el.koLinkModal.hidden = false;
+        me.el.koLinkModal.classList.add('is-open');
+      }
+    },
+
+    populateKoLinkSelect: function () {
+      var sel = this.el.koLinkSelect;
+      if (!sel) return;
+      var list = this.linkableKnockoutComps();
+      sel.innerHTML = '';
+      if (!list.length) {
+        var empty = document.createElement('option');
+        empty.value = '';
+        empty.textContent = 'No standalone knockout comps';
+        sel.appendChild(empty);
+        return;
+      }
+      list.forEach(function (c) {
+        var o = document.createElement('option');
+        o.value = compIdOf(c);
+        o.textContent = c.name || compIdOf(c);
+        sel.appendChild(o);
+      });
+    },
+
+    fillKoNewPlayerCheckboxes: function () {
+      if (!this.el.koNewPlayers) return;
+      var players = this.leaguePlayersForPick();
+      if (!players.length) {
+        this.el.koNewPlayers.innerHTML =
+          '<p class="admin-player-picks__hint" style="padding:0.75em;">No players on this league comp yet. Add players to groups first.</p>';
+        return;
+      }
+      var allIds = players.map(function (p) {
+        return p.playerId;
+      });
+      this.renderCheckboxList(this.el.koNewPlayers, players, allIds);
+    },
+
+    addKnockoutStage: function () {
+      if (this.linkedKnockoutComp()) return;
+      this.openKoLinkModal();
+    },
+
+    confirmLinkExistingKnockout: function () {
+      var me = this;
+      if (me.linkedKnockoutComp()) return;
+      var parentId = me.activeCompId;
+      if (!parentId) return;
+      var koId = me.el.koLinkSelect && me.el.koLinkSelect.value;
+      if (!koId) {
+        me.flash('Select a knockout comp to link.', true);
+        return;
+      }
+      var child = me.competitions.find(function (c) {
+        return compIdOf(c) === koId;
+      });
+      if (!child || parentCompIdOf(child)) {
+        me.flash('That knockout comp cannot be linked.', true);
+        return;
+      }
+      if (me.el.koLinkConfirm) me.el.koLinkConfirm.disabled = true;
       me.persistCompHeader()
         .then(function () {
           return ApiClient.post('upsertSeason', {
             seasonId: koId,
-            name: parentName + ' Knockout',
+            name: child.name || koId,
+            competitionType: 'knockout',
+            parentSeasonId: parentId,
+            isCurrent: !!child.isCurrent,
+          });
+        })
+        .then(function () {
+          me.closeKoLinkModal();
+          me.flash('Knockout comp linked.', false);
+          return me.loadCompetitions();
+        })
+        .then(function () {
+          return me.loadCompDetail(parentId);
+        })
+        .catch(function (err) {
+          me.flash(err.message || String(err), true);
+        })
+        .finally(function () {
+          if (me.el.koLinkConfirm) me.el.koLinkConfirm.disabled = false;
+          me.updateAddKnockoutButton();
+        });
+    },
+
+    confirmCreateNewKnockout: function () {
+      var me = this;
+      if (me.linkedKnockoutComp()) return;
+      var parentId = me.activeCompId;
+      if (!parentId) return;
+      var name = me.el.koNewName && me.el.koNewName.value.trim();
+      if (!name) {
+        me.flash('Enter a name for the knockout comp.', true);
+        return;
+      }
+      var idRaw = me.el.koNewId && me.el.koNewId.value.trim();
+      var koId = idRaw || parentId + '-ko';
+      if (!/^[a-z0-9-]+$/.test(koId)) {
+        me.flash('Comp id must use lowercase letters, numbers, and hyphens only.', true);
+        return;
+      }
+      if (
+        (me.competitions || []).some(function (c) {
+          return compIdOf(c) === koId;
+        })
+      ) {
+        me.flash('Comp id "' + koId + '" is already in use.', true);
+        return;
+      }
+      var selected = me.getCheckedPlayerIds(me.el.koNewPlayers);
+      if (me.el.koNewCreate) me.el.koNewCreate.disabled = true;
+      me.persistCompHeader()
+        .then(function () {
+          return ApiClient.post('upsertSeason', {
+            seasonId: koId,
+            name: name,
             competitionType: 'knockout',
             parentSeasonId: parentId,
             isCurrent: false,
           });
         })
         .then(function () {
+          return me.syncKnockoutRoster(koId, selected);
+        })
+        .then(function () {
+          me.closeKoLinkModal();
+          me.flash('Knockout comp created and linked.', false);
           return me.loadCompetitions();
+        })
+        .then(function () {
+          return me.loadCompDetail(parentId);
         })
         .then(function () {
           var child = me.competitions.find(function (c) {
             return compIdOf(c) === koId;
           });
           if (child) me.openEdit(child);
-          else me.flash('Knockout stage created.', false);
         })
         .catch(function (err) {
           me.flash(err.message || String(err), true);
         })
         .finally(function () {
-          if (me.el.addKnockout) me.el.addKnockout.disabled = false;
+          if (me.el.koNewCreate) me.el.koNewCreate.disabled = false;
+          me.updateAddKnockoutButton();
         });
     },
 
@@ -383,6 +696,8 @@ var AdminCompetitionsPage = (function () {
       if (this.el.knockoutStagesSection) {
         this.el.knockoutStagesSection.hidden = ko || !this.activeCompId;
       }
+      this.updateKnockoutLinkUi();
+      this.updateAddKnockoutButton();
     },
 
     setManageVisible: function (visible) {
@@ -977,6 +1292,11 @@ var AdminCompetitionsPage = (function () {
           me.addKnockoutStage();
         });
       }
+      if (this.el.unlinkKnockout) {
+        this.el.unlinkKnockout.addEventListener('click', function () {
+          if (me.activeCompId) me.unlinkKnockoutStage(me.activeCompId);
+        });
+      }
       if (this.el.groupForm) {
         this.el.groupForm.addEventListener('submit', function (e) {
           me.saveGroup(e);
@@ -1009,9 +1329,47 @@ var AdminCompetitionsPage = (function () {
           if (ev.target === me.el.groupModal) me.closeGroupModal();
         });
       }
+      if (this.el.koLinkExistingBtn) {
+        this.el.koLinkExistingBtn.addEventListener('click', function () {
+          me.showKoLinkPanel('existing');
+        });
+      }
+      if (this.el.koLinkNewBtn) {
+        this.el.koLinkNewBtn.addEventListener('click', function () {
+          me.fillKoNewPlayerCheckboxes();
+          me.showKoLinkPanel('new');
+        });
+      }
+      if (this.el.koLinkConfirm) {
+        this.el.koLinkConfirm.addEventListener('click', function () {
+          me.confirmLinkExistingKnockout();
+        });
+      }
+      if (this.el.koNewCreate) {
+        this.el.koNewCreate.addEventListener('click', function () {
+          me.confirmCreateNewKnockout();
+        });
+      }
+      document.querySelectorAll('[data-close="ko-link"]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          me.closeKoLinkModal();
+        });
+      });
+      document.querySelectorAll('[data-ko-link-back]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          me.showKoLinkPanel('choose');
+        });
+      });
+      if (this.el.koLinkModal) {
+        this.el.koLinkModal.addEventListener('click', function (ev) {
+          if (ev.target === me.el.koLinkModal) me.closeKoLinkModal();
+        });
+      }
       document.addEventListener('keydown', function (ev) {
         if (ev.key !== 'Escape') return;
-        if (me.el.groupModal && me.el.groupModal.classList.contains('is-open')) {
+        if (me.el.koLinkModal && me.el.koLinkModal.classList.contains('is-open')) {
+          me.closeKoLinkModal();
+        } else if (me.el.groupModal && me.el.groupModal.classList.contains('is-open')) {
           me.closeGroupModal();
         } else if (me.el.modal && me.el.modal.classList.contains('is-open')) {
           me.closeCompModal();
