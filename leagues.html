@@ -34,10 +34,13 @@
     <script src="assets/js/pages/under-development.js"></script>
     <script defer src="assets/js/main.js"></script>
     <style>
-      .standings-wrapper { max-width: 540px; margin: 1.5em auto; }
+      .entry-wrapper.content__entry {
+        padding-left: max(0.25rem, env(safe-area-inset-left, 0px));
+        padding-right: max(0.25rem, env(safe-area-inset-right, 0px));
+      }
+      .standings-wrapper { max-width: none; width: 100%; margin: 1.5em 0; }
       .standings-heading { text-align: left; font-size: 1.4em; font-weight: 600; margin: 0.5em 0 0.3em 0; color: #fff; }
-      .league-standings { display: inline-block; background-color: #111; color: #fff; font-family: "Courier New", ui-monospace, monospace; font-size: 0.95em; line-height: 1.3; padding: 1em; border-radius: 6px; margin: 0 auto 1em auto; text-align: left; white-space: pre; max-width: 100%; overflow-x: auto; box-sizing: border-box; }
-      .standings-wrapper pre { margin-left: 0 !important; padding-left: 0 !important; }
+      .league-standings { display: block; width: fit-content; max-width: 100%; background-color: #111; color: #fff; font-family: "Courier New", ui-monospace, monospace; font-size: 0.95em; line-height: 1.3; padding: 0.75em 0.5em; border-radius: 6px; margin: 0 auto 1em; text-align: left; white-space: pre; overflow-x: auto; box-sizing: border-box; }
     </style>
   </head>
   <body class="page-template">

@@ -130,6 +130,34 @@ var KnockoutRounds = (function () {
 
   var KO_BASE_SORT = 10000;
 
+  function ordinal(n) {
+    var num = parseInt(n, 10);
+    if (!Number.isFinite(num) || num < 1) return String(n);
+    var v = num % 100;
+    if (v >= 11 && v <= 13) return num + 'th';
+    switch (num % 10) {
+      case 1:
+        return num + 'st';
+      case 2:
+        return num + 'nd';
+      case 3:
+        return num + 'rd';
+      default:
+        return num + 'th';
+    }
+  }
+
+  function winnerOfStageName(stageId) {
+    var names = {
+      L32: 'Last 32',
+      L16: 'Last 16',
+      QF: 'Quarter-final',
+      SF: 'Semi-final',
+      F: 'Final',
+    };
+    return names[stageId] || '';
+  }
+
   function parseMatchScores(match) {
     var hasResult = match['Result'] && String(match['Result']).trim() !== '';
     var scoreA = match.scoreA;
@@ -267,6 +295,13 @@ var KnockoutRounds = (function () {
     },
 
     winnerOfDisplayLabel: function (roundCode) {
+      var parsed = this.parseStageMatch(roundCode);
+      if (parsed.stageId && parsed.matchNum) {
+        var stageName = winnerOfStageName(parsed.stageId);
+        if (stageName) {
+          return ordinal(parsed.matchNum) + ' ' + stageName + ' Winner';
+        }
+      }
       var label = this.labelFor(roundCode);
       var base = label || String(roundCode || '').trim();
       return base ? base + ' Winner' : 'Winner';
@@ -280,6 +315,7 @@ var KnockoutRounds = (function () {
       if (this.isWinnerOfPlayerId(id)) {
         var code = this.roundCodeFromWinnerOfId(id);
         if (code && winnersByCode[code]) return winnersByCode[code];
+        if (code) return this.winnerOfDisplayLabel(code);
       }
       return fallback;
     },
