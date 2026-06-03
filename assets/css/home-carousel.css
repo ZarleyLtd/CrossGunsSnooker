@@ -10,7 +10,7 @@
 .ko-bracket-stage-nav .ko-bracket-shell__arrow--next{grid-column:3;grid-row:1}
 .ko-bracket-track-block--stage-nav .ko-bracket-stage__head{display:none}
 .ko-bracket-track-block--stage-nav .ko-bracket-connector{padding-top:0}
-.ko-bracket-shell__viewport{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;scroll-padding:0 8vw;padding:.25rem 0 1rem;border-radius:8px}
+.ko-bracket-shell__viewport{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;scroll-padding:0 8vw;padding:.25rem 0 1rem;border-radius:8px;touch-action:pan-x pan-y}
 .ko-bracket-shell__track{display:flex;flex-direction:row;align-items:stretch;gap:0;min-height:12rem}
 .ko-bracket-stage{flex:0 0 min(82vw,12.5rem);scroll-snap-align:center;scroll-snap-stop:always;padding:0 .35rem;box-sizing:border-box;display:flex;flex-direction:column}
 .ko-bracket-stage__head{text-align:center;font-size:.85rem;font-variation-settings:"wght" 600;color:#169179;margin:0 0 .55rem;line-height:1.25;min-height:2.5em;display:flex;align-items:flex-end;justify-content:center;flex-shrink:0}
