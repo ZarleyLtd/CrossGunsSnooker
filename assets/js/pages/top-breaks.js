@@ -14,7 +14,39 @@ const TopBreaksPage = {
     const result = await ApiClient.get(
       Object.assign({ action: 'getTopBreaks', limit: '500' }, CurrentCompetition.apiParams())
     );
-    return Array.isArray(result.breaks) ? result.breaks : [];
+    let breaks = Array.isArray(result.breaks) ? result.breaks : [];
+
+    const season = CurrentCompetition.get();
+    const ko = season && CurrentCompetition.isLeague()
+      ? CurrentCompetition.findAssociatedKnockout(season)
+      : null;
+    if (ko) {
+      const koId = ko.seasonId || ko.compId;
+      if (koId) {
+        const koResult = await ApiClient.get({
+          action: 'getTopBreaks',
+          limit: '500',
+          season: koId,
+        });
+        breaks = this._mergeBreaks(breaks, koResult.breaks || []);
+      }
+    }
+
+    return breaks;
+  },
+
+  _mergeBreaks: function (primary, extra) {
+    const seen = new Set();
+    const merged = [];
+    (primary || []).concat(extra || []).forEach(function (b) {
+      const id = b && (b.breakId || b.break_id);
+      if (id) {
+        if (seen.has(id)) return;
+        seen.add(id);
+      }
+      merged.push(b);
+    });
+    return merged;
   },
 
   render: function () {
