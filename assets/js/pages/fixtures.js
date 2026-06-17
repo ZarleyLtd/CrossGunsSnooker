@@ -4,11 +4,12 @@ var FixturesPage = {
   /** Dispatched on successful Save from the Enter result dialog (fixtures or results page). */
   RESULT_SAVED_EVENT: 'crossguns-fixture-result-saved',
 
-  /** Frames in a match (one rack icon per frame per player; each frame awarded once). */
-  FRAME_RACK_COUNT: 3,
+  /** Default match length when fixture has no bestOf (odd 1–9). */
+  DEFAULT_BEST_OF: 3,
+  _currentBestOf: 3,
   _loadedBreakIds: [],
-  /** Per-frame winner for current dialog: index 0..2 → null | 'a' | 'b' */
-  _matchFrameWinners: [],
+  /** Per-player frame scores in the result dialog. */
+  _playerScores: { a: 0, b: 0 },
   /** True when dialog was opened for a fixture that already had a recorded result. */
   _dialogOpenedWithResult: false,
   _resultDialogBindingsDone: false,
@@ -16,6 +17,44 @@ var FixturesPage = {
     'Remove this result from the database?\n\nFrames are 0–0, so the recorded score will be cleared and this fixture will show as having no result. Any breaks already saved for this match will be deleted.',
   CLEAR_RESULT_INLINE_MSG:
     'Frames are 0–0 — saving will remove this result from the database and delete any breaks already saved for this match.',
+
+  normalizeBestOf: function (raw) {
+    var n = parseInt(raw, 10);
+    if (!Number.isFinite(n) || n < 1 || n > 9 || n % 2 === 0) return this.DEFAULT_BEST_OF;
+    return n;
+  },
+
+  framesToWin: function () {
+    return Math.ceil(this._currentBestOf / 2);
+  },
+
+  initPlayerScores: function () {
+    this._playerScores = { a: 0, b: 0 };
+  },
+
+  playerScore: function (side) {
+    return this._playerScores[side] || 0;
+  },
+
+  adjustPlayerScore: function (side, delta) {
+    if (side !== 'a' && side !== 'b') return;
+    var framesToWin = this.framesToWin();
+    var myScore = this.playerScore(side);
+    var next = myScore + delta;
+    if (next < 0 || next > framesToWin) return;
+    if (delta > 0 && !this.canIncrementScore(side)) return;
+    this._playerScores[side] = next;
+    this.refreshMatchFrameUI();
+  },
+
+  canIncrementScore: function (side) {
+    var framesToWin = this.framesToWin();
+    var myScore = this.playerScore(side);
+    var total = this.playerScore('a') + this.playerScore('b');
+    if (myScore >= framesToWin) return false;
+    if (total + 1 > this._currentBestOf) return false;
+    return true;
+  },
 
   adminModeEvent: function () {
     return typeof AdminMode !== 'undefined' ? AdminMode.EVENT_NAME : 'crossguns-admin-mode-changed';
@@ -140,8 +179,10 @@ var FixturesPage = {
         var host = rack.closest('[data-frame-racks-for]');
         if (!host) return;
         var side = host.getAttribute('data-frame-racks-for');
-        var idx = parseInt(rack.getAttribute('data-rack-index'), 10);
-        if (side && !isNaN(idx)) self.toggleMatchFrame(idx, side);
+        var action = rack.getAttribute('data-rack-action');
+        if (side && (action === 'inc' || action === 'dec')) {
+          self.adjustPlayerScore(side, action === 'inc' ? 1 : -1);
+        }
       });
     }
 
@@ -205,7 +246,8 @@ var FixturesPage = {
 
   createFrameRackSvg: function () {
     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('viewBox', '0 0 56 50');
+    svg.setAttribute('viewBox', '10 5.5 36 36');
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     svg.setAttribute('class', 'fixture-frame-rack-svg');
     svg.setAttribute('aria-hidden', 'true');
     var ballR = 3.35;
@@ -235,81 +277,47 @@ var FixturesPage = {
 
   ensureFrameRacksBuilt: function () {
     var self = this;
-    var countStr = String(self.FRAME_RACK_COUNT);
     ['a', 'b'].forEach(function (side) {
       var host = document.getElementById('fixture-frame-racks-' + side);
       if (!host) return;
-      if (host.getAttribute('data-racks-built-count') === countStr) return;
+      if (host.getAttribute('data-racks-built') === 'controls-v2') return;
       host.innerHTML = '';
-      var rowsWrap = document.createElement('div');
-      rowsWrap.className = 'fixture-frame-racks-rows';
-      var row = document.createElement('div');
-      row.className = 'fixture-frame-racks-row';
-      var i;
-      for (i = 0; i < self.FRAME_RACK_COUNT; i++) {
+      var col = document.createElement('div');
+      col.className = 'fixture-frame-racks-col';
+      [
+        { action: 'inc', inverted: false, label: 'Increase score' },
+        { action: 'dec', inverted: true, label: 'Decrease score' },
+      ].forEach(function (spec) {
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'fixture-frame-rack';
-        btn.setAttribute('data-rack-index', String(i));
-        btn.setAttribute(
-          'aria-label',
-          'Frame ' + (i + 1) + ' of ' + self.FRAME_RACK_COUNT + ', assign to this player'
-        );
-        btn.setAttribute('aria-pressed', 'false');
-        btn.appendChild(self.createFrameRackSvg());
-        row.appendChild(btn);
-      }
-      rowsWrap.appendChild(row);
-      host.appendChild(rowsWrap);
-      host.setAttribute('data-racks-built-count', countStr);
+        if (spec.inverted) btn.classList.add('fixture-frame-rack--inverted');
+        btn.setAttribute('data-rack-action', spec.action);
+        btn.setAttribute('aria-label', spec.label);
+        var icon = document.createElement('span');
+        icon.className = 'fixture-frame-rack-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.appendChild(self.createFrameRackSvg());
+        btn.appendChild(icon);
+        col.appendChild(btn);
+      });
+      host.appendChild(col);
+      host.setAttribute('data-racks-built', 'controls-v2');
     });
   },
 
-  toggleMatchFrame: function (frameIndex, side) {
-    var w = this._matchFrameWinners[frameIndex];
-    if (w === side) {
-      this._matchFrameWinners[frameIndex] = null;
-    } else {
-      var maxWins = Math.ceil(this.FRAME_RACK_COUNT / 2);
-      var currentCount = 0;
-      for (var i = 0; i < this.FRAME_RACK_COUNT; i++) {
-        if (this._matchFrameWinners[i] === side) currentCount++;
-      }
-      if (currentCount >= maxWins) return;
-      this._matchFrameWinners[frameIndex] = side;
-    }
-    this.refreshMatchFrameUI();
-  },
-
-  /**
-   * Fill frame winners from aggregate scores (order not stored in DB).
-   * First `scoreA` frames → A, next `scoreB` → B; extras stay unassigned.
-   */
   applyCanonicalFrameAssignment: function (scoreA, scoreB) {
-    var idx = 0;
-    var i;
-    var sa = Math.max(0, Math.min(Math.trunc(scoreA), this.FRAME_RACK_COUNT));
-    var sb = Math.max(0, Math.min(Math.trunc(scoreB), this.FRAME_RACK_COUNT));
-    for (i = 0; i < sa && idx < this.FRAME_RACK_COUNT; i++) {
-      this._matchFrameWinners[idx++] = 'a';
-    }
-    for (i = 0; i < sb && idx < this.FRAME_RACK_COUNT; i++) {
-      this._matchFrameWinners[idx++] = 'b';
-    }
-    while (idx < this.FRAME_RACK_COUNT) {
-      this._matchFrameWinners[idx++] = null;
-    }
+    var cap = this.framesToWin();
+    this._playerScores = {
+      a: Math.max(0, Math.min(Math.trunc(scoreA), cap)),
+      b: Math.max(0, Math.min(Math.trunc(scoreB), cap)),
+    };
   },
 
   refreshMatchFrameUI: function () {
-    var winners = this._matchFrameWinners;
-    var scoreA = 0;
-    var scoreB = 0;
-    var i;
-    for (i = 0; i < this.FRAME_RACK_COUNT; i++) {
-      if (winners[i] === 'a') scoreA++;
-      if (winners[i] === 'b') scoreB++;
-    }
+    var scoreA = this.playerScore('a');
+    var scoreB = this.playerScore('b');
+    var framesToWin = this.framesToWin();
     document.getElementById('fixture-result-score-a').value = String(scoreA);
     document.getElementById('fixture-result-score-b').value = String(scoreB);
     var dispA = document.getElementById('fixture-result-score-a-display');
@@ -328,46 +336,41 @@ var FixturesPage = {
         'fixture-result-player-name--winner',
         'fixture-result-player-name--loser'
       );
-      if (scoreA >= 2) {
+      if (scoreA >= framesToWin) {
         labelA.classList.add('fixture-result-player-name--winner');
         labelB.classList.add('fixture-result-player-name--loser');
-      } else if (scoreB >= 2) {
+      } else if (scoreB >= framesToWin) {
         labelB.classList.add('fixture-result-player-name--winner');
         labelA.classList.add('fixture-result-player-name--loser');
       }
     }
 
     var self = this;
-    var maxWins = Math.ceil(this.FRAME_RACK_COUNT / 2);
-    var sideAtMax = { a: scoreA >= maxWins, b: scoreB >= maxWins };
     ['a', 'b'].forEach(function (side) {
       var host = document.getElementById('fixture-frame-racks-' + side);
       if (!host) return;
+      var myScore = self.playerScore(side);
       host.querySelectorAll('.fixture-frame-rack').forEach(function (rack) {
-        var idx = parseInt(rack.getAttribute('data-rack-index'), 10);
-        var win = winners[idx];
-        var mine = win === side;
-        var lost = win !== null && win !== side;
-        var disable = sideAtMax[side] && !mine;
-        rack.classList.toggle('fixture-frame-rack--on', mine);
-        rack.classList.toggle('fixture-frame-rack--lost', lost);
+        var action = rack.getAttribute('data-rack-action');
+        var disable =
+          action === 'inc' ? !self.canIncrementScore(side) : action === 'dec' ? myScore <= 0 : true;
+        rack.classList.remove('fixture-frame-rack--on', 'fixture-frame-rack--lost');
         rack.disabled = disable;
-        rack.setAttribute('aria-pressed', mine ? 'true' : 'false');
-        rack.setAttribute('aria-label', self.frameRackAriaLabel(idx, win, side));
+        rack.setAttribute('aria-label', self.frameRackAriaLabel(action, side));
       });
     });
     this.updateClearingResultWarning(scoreA, scoreB);
   },
 
-  frameRackAriaLabel: function (idx, win, side) {
-    var n = idx + 1;
-    if (win === null) {
-      return 'Frame ' + n + ': not awarded — tap to give to this player';
+  frameRackAriaLabel: function (action, side) {
+    var score = this.playerScore(side);
+    if (action === 'inc') {
+      return 'Increase score (currently ' + score + ')';
     }
-    if (win === side) {
-      return 'Frame ' + n + ': awarded to this player — tap to clear';
+    if (action === 'dec') {
+      return 'Decrease score (currently ' + score + ')';
     }
-    return 'Frame ' + n + ': awarded to opponent — tap to give this frame to this player';
+    return 'Adjust score';
   },
 
   focusResultDialogRoot: function () {
@@ -526,6 +529,7 @@ var FixturesPage = {
         div.setAttribute('data-player-a-name', nameA);
         div.setAttribute('data-player-b-name', nameB);
         div.setAttribute('data-match-date', match['Match Date'] || '');
+        div.setAttribute('data-best-of', String(self.normalizeBestOf(match.bestOf)));
         var resultReady = self.fixtureResultReady(match, isKnockout, winnersByCode);
         div.setAttribute('data-result-ready', resultReady ? 'true' : 'false');
 
@@ -652,6 +656,8 @@ var FixturesPage = {
     var nameA = rowEl.getAttribute('data-player-a-name');
     var nameB = rowEl.getAttribute('data-player-b-name');
     var prevDate = rowEl.getAttribute('data-match-date');
+    var bestOf = this.normalizeBestOf(rowEl.getAttribute('data-best-of'));
+    this._currentBestOf = bestOf;
 
     document.getElementById('fixture-result-fixture-id').value = fid;
     document.getElementById('fixture-result-player-a-id').value = pidA;
@@ -664,11 +670,7 @@ var FixturesPage = {
     dateEl.value = prevDate && String(prevDate).trim() ? prevDate : this.localISODate();
 
     this.ensureFrameRacksBuilt();
-    var k;
-    this._matchFrameWinners = [];
-    for (k = 0; k < this.FRAME_RACK_COUNT; k++) {
-      this._matchFrameWinners[k] = null;
-    }
+    this.initPlayerScores();
     this._dialogOpenedWithResult = false;
     var hadResult = rowEl.getAttribute('data-had-result');
     if (hadResult === '1' || hadResult === 'true') {
@@ -748,6 +750,7 @@ var FixturesPage = {
     var scoreA = parseInt(document.getElementById('fixture-result-score-a').value, 10) || 0;
     var scoreB = parseInt(document.getElementById('fixture-result-score-b').value, 10) || 0;
     var matchDate = document.getElementById('fixture-result-date').value;
+    var framesToWin = this.framesToWin();
 
     if (!fixtureId) throw new Error('Missing fixture');
 
@@ -770,7 +773,7 @@ var FixturesPage = {
       return;
     }
 
-    if (!clearing && scoreA < 2 && scoreB < 2) {
+    if (!clearing && scoreA < framesToWin && scoreB < framesToWin) {
       if (msg) {
         msg.textContent = 'There must be a winner!';
         msg.hidden = false;

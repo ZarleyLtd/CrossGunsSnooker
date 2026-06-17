@@ -118,13 +118,23 @@
                       <label for="adminFxWeek">Week</label><br />
                       <input type="number" id="adminFxWeek" min="1" step="1" />
                     </p>
+                    <p class="admin-fixture-dialog__field admin-fixture-dialog__field--best-of">
+                      <label for="adminFxBestOfLeague">Best of</label><br />
+                      <input type="number" id="adminFxBestOfLeague" class="admin-fixture-dialog__best-of" min="1" max="9" step="2" value="3" inputmode="numeric" />
+                    </p>
                   </div>
                 </div>
                 <div id="adminFxKoFields" hidden>
-                  <p>
-                    <label for="adminFxRound">Round</label><br />
-                    <select id="adminFxRound"></select>
-                  </p>
+                  <div class="admin-fixture-dialog__round-best-of">
+                    <p class="admin-fixture-dialog__field admin-fixture-dialog__field--round">
+                      <label for="adminFxRound">Round</label><br />
+                      <select id="adminFxRound"></select>
+                    </p>
+                    <p class="admin-fixture-dialog__field admin-fixture-dialog__field--best-of">
+                      <label for="adminFxBestOfKo">Best of</label><br />
+                      <input type="number" id="adminFxBestOfKo" class="admin-fixture-dialog__best-of" min="1" max="9" step="2" value="3" inputmode="numeric" />
+                    </p>
+                  </div>
                 </div>
                 <div class="admin-fixture-dialog__players">
                   <p class="admin-fixture-dialog__player-row">

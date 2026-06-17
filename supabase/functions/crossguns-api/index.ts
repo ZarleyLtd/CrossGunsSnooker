@@ -103,6 +103,7 @@ type FixtureRow = {
   score_a: number | null;
   score_b: number | null;
   sort_order: number;
+  best_of: number;
 };
 type StandingRow = {
   season_id: string;
@@ -580,7 +581,7 @@ async function handleGetFixtures(req: Request): Promise<Response> {
       select fixture_id, season_id, league_id, stage, round_label,
              player_a_id, player_b_id,
              to_char(match_date, 'YYYY-MM-DD') as match_date,
-             score_a, score_b, sort_order
+             score_a, score_b, sort_order, best_of
       from crossguns.fixtures
       where season_id = ${seasonId}
       order by sort_order asc, round_label asc
@@ -612,6 +613,7 @@ async function handleGetFixtures(req: Request): Promise<Response> {
       scoreA: r.score_a,
       scoreB: r.score_b,
       sortOrder: r.sort_order,
+      bestOf: r.best_of,
       playerAId: r.player_a_id,
       playerBId: r.player_b_id,
     };
@@ -1527,6 +1529,13 @@ async function validateKnockoutFixtureRound(
   return null;
 }
 
+function parseBestOf(raw: unknown): number | null {
+  if (raw === undefined || raw === null || raw === "") return 3;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 1 || n > 9 || Math.trunc(n) % 2 === 0) return null;
+  return Math.trunc(n);
+}
+
 async function handleUpsertFixture(data: Record<string, unknown>): Promise<Response> {
   const fixtureId = data.fixtureId ? String(data.fixtureId).trim() : "";
   const seasonId = String(data.seasonId ?? "").trim();
@@ -1543,6 +1552,7 @@ async function handleUpsertFixture(data: Record<string, unknown>): Promise<Respo
   const sortOrder = sortOrderRaw !== undefined && sortOrderRaw !== ""
     ? Number(sortOrderRaw)
     : 0;
+  const bestOf = parseBestOf(data.bestOf);
 
   const scoreA = parseNullableScore(data.scoreA);
   const scoreB = parseNullableScore(data.scoreB);
@@ -1564,6 +1574,7 @@ async function handleUpsertFixture(data: Record<string, unknown>): Promise<Respo
   if (stage === "league" && !leagueId) return errorResponse("leagueId required for league stage");
   if (playerAId === playerBId) return errorResponse("Players must be different");
   if (!Number.isFinite(sortOrder)) return errorResponse("sortOrder must be a number");
+  if (bestOf === null) return errorResponse("bestOf must be an odd number from 1 to 9");
 
   const sql = db();
   if (stage === "knockout") {
@@ -1589,6 +1600,7 @@ async function handleUpsertFixture(data: Record<string, unknown>): Promise<Respo
         score_a = ${sa},
         score_b = ${sb},
         sort_order = ${so},
+        best_of = ${bestOf},
         updated_at = now()
       where fixture_id = ${fixtureId}::uuid
     `;
@@ -1598,10 +1610,10 @@ async function handleUpsertFixture(data: Record<string, unknown>): Promise<Respo
   await sql`
     insert into crossguns.fixtures (
       season_id, league_id, stage, round_label,
-      player_a_id, player_b_id, match_date, score_a, score_b, sort_order
+      player_a_id, player_b_id, match_date, score_a, score_b, sort_order, best_of
     ) values (
       ${seasonId}, ${leagueId}, ${stage}, ${roundLabel},
-      ${playerAId}, ${playerBId}, ${matchDate}, ${sa}, ${sb}, ${so}
+      ${playerAId}, ${playerBId}, ${matchDate}, ${sa}, ${sb}, ${so}, ${bestOf}
     )
   `;
   return jsonResponse({ success: true });

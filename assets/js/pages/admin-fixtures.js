@@ -43,6 +43,8 @@ var AdminFixturesPage = (function () {
       this.el.league = document.getElementById('adminFxLeague');
       this.el.week = document.getElementById('adminFxWeek');
       this.el.round = document.getElementById('adminFxRound');
+      this.el.bestOfLeague = document.getElementById('adminFxBestOfLeague');
+      this.el.bestOfKo = document.getElementById('adminFxBestOfKo');
       this.el.coherenceWarn = document.getElementById('adminFxCoherenceWarn');
       this.el.pa = document.getElementById('adminFxPa');
       this.el.pb = document.getElementById('adminFxPb');
@@ -151,6 +153,28 @@ var AdminFixturesPage = (function () {
       );
       if (keep && rs.querySelector('option[value="' + keep + '"]')) rs.value = keep;
       else if (rs.options.length) rs.selectedIndex = 0;
+    },
+
+    activeBestOfInput: function () {
+      var stage = this.el.stage && this.el.stage.value;
+      return stage === 'knockout' ? this.el.bestOfKo : this.el.bestOfLeague;
+    },
+
+    normalizeBestOf: function (raw) {
+      var n = parseInt(raw, 10);
+      if (!Number.isFinite(n) || n < 1 || n > 9 || n % 2 === 0) return 3;
+      return n;
+    },
+
+    setBestOfFields: function (value) {
+      var v = String(this.normalizeBestOf(value));
+      if (this.el.bestOfLeague) this.el.bestOfLeague.value = v;
+      if (this.el.bestOfKo) this.el.bestOfKo.value = v;
+    },
+
+    readBestOfFromDialog: function () {
+      var input = this.activeBestOfInput();
+      return this.normalizeBestOf(input && input.value);
     },
 
     usedMatchNumbersForStage: function (stageId, excludeFixtureId) {
@@ -695,6 +719,7 @@ var AdminFixturesPage = (function () {
         this.el.stage.disabled = false;
       }
       if (this.el.week) this.el.week.value = '';
+      this.setBestOfFields(3);
       this.fillRoundSelect();
       if (this.el.round) this.el.round.selectedIndex = 0;
       this.assignInternalMatchNum();
@@ -749,6 +774,7 @@ var AdminFixturesPage = (function () {
         this.fillLeagueSelect(String(f['League'] || ''));
         if (this.el.week) this.el.week.value = String(f['Game Week'] || '');
       }
+      this.setBestOfFields(f.bestOf != null ? f.bestOf : 3);
       if (this.el.deleteBtn) this.el.deleteBtn.hidden = false;
       this.syncStageFields();
       this.fillPlayerSelects(f.playerAId || '', f.playerBId || '');
@@ -803,6 +829,7 @@ var AdminFixturesPage = (function () {
         stage: stage,
         playerAId: pa,
         playerBId: pb,
+        bestOf: me.readBestOfFromDialog(),
       };
       var fid = me.el.fixtureId && me.el.fixtureId.value.trim();
       if (fid) payload.fixtureId = fid;

@@ -246,6 +246,14 @@ var ResultsPage = {
         div.setAttribute('data-player-a-name', playerAName);
         div.setAttribute('data-player-b-name', playerBName);
         div.setAttribute('data-match-date', match['Match Date'] || '');
+        div.setAttribute(
+          'data-best-of',
+          String(
+            typeof FixturesPage !== 'undefined' && FixturesPage.normalizeBestOf
+              ? FixturesPage.normalizeBestOf(match.bestOf)
+              : match.bestOf || 3
+          )
+        );
         div.setAttribute('data-had-result', '1');
 
         var sa = match.scoreA != null && match.scoreA !== '' ? Number(match.scoreA) : 0;
