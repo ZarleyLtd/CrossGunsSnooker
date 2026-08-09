@@ -1,0 +1,54 @@
+Presence of PDF title phrases on page (after emoji/markdown strip):
+  [OK] Title banner CLUB LEAGUE RULES & PROCESSES | pdf=True page=True
+  [OK] PLEASE READ CAREFULLY as body text | pdf=True page=True
+  [OK] WORLD SNOOKER RULES APPLY heading | pdf=True page=True
+  [OK] CLUB MISS RULE as numbered section title | pdf=True page=True
+  [OK] PACE OF PLAY section title | pdf=True page=True
+  [OK] PLAYER CONDUCT section title | pdf=True page=True
+  [OK] IMPORTANT - SELF-REFEREED MATCHES | pdf=True page=True
+  [OK] THE BOTTOM LINE | pdf=True page=True
+  [OK] LEAGUE POINTS & PLAYER OF THE YEAR - IMPORTANT | pdf=True page=True
+  [MISSING] IMPORTANT after POTY title | pdf=True page=False
+  [MISSING] HIGHEST BREAK PRIZE - IMPORTANT | pdf=True page=False
+  [OK] FINAL NOTE | pdf=True page=True
+  [OK] HEADS UP - GROUPS C & D | pdf=True page=True
+  [OK] MATCH RULES - PLEASE READ | pdf=True page=True
+
+Specific phrase checks:
+  page has "30 players competing for a €1,500 prize pot": True | pdf has: True
+  page has "30 players competing for €1,500": True | pdf has: True
+  page has "30 players competing for a €1,500 prize": True | pdf has: True
+  page has "Good luck everyone, and enjoy the season!": True | pdf has: True
+  page has "Club Rule — must be followed in all league matches": True | pdf has: True
+  page has "Club Rule - must be followed in all league matches": True | pdf has: True
+
+Section titles present in EXPANDED BODY (not just summary):
+  body:-  full:+  | please read carefully
+  body:-  full:+  | world snooker rules apply
+  body:+  full:+  | club miss rule
+  body:+  full:+  | pace of play
+  body:+  full:+  | player conduct
+  body:-  full:+  | important - self-refereed matches
+  body:-  full:+  | the bottom line
+  body:-  full:-  | league points & player of the year - important
+  body:-  full:-  | highest break prize - important
+  body:-  full:+  | final note
+  body:-  full:+  | heads up - groups c & d
+  body:+  full:+  | match rules - please read
+  body:+  full:+  | club rule - must be followed in all league matches
+  body:+  full:+  | why the scorecard is important
+  body:+  full:+  | monitoring of matches
+  body:+  full:+  | world snooker - section 4, rule 3(a): time wasting
+
+UI-only additions on page (not in PDF):
+  - Tip line: Tap a heading to expand...
+  - Accordion summary labels (structural)
+  - Site chrome (nav/hero/footer)
+
+Decorative PDF markers omitted on page (intentional presentation):
+  - Emoji (siren, trophy, snooker ball, warning, etc.)
+  - Keycap numbers 1/2/3/4 on section titles
+  - Markdown ** / # from source export
+  - Horizontal rule separators ---
+
+Longer words in PDF not found on page:

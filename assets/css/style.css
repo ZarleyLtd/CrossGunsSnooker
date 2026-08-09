@@ -6,3 +6,15 @@
 .fixture-player-name:hover,.fixture-player-name:focus,.fixture-player-name:active{color:inherit;text-decoration:none;background:none;outline:none;box-shadow:none}
 .brief-message{--brief-msg-z-index:2000;--brief-msg-bg:rgba(23,24,30,.93);--brief-msg-color:#fff;--brief-msg-border:none;--brief-msg-radius:calc(var(--border-radius)*4);--brief-msg-shadow:0 4px 14px rgba(0,0,0,.35)}
 .fixture-result-dialog .fixture-frame-rack{background:transparent!important;border:none!important;border-radius:0!important;padding:0!important;margin:0!important;box-shadow:none!important;color:inherit!important;width:auto!important;min-width:0!important}.fixture-result-dialog .fixture-frame-rack:hover,.fixture-result-dialog .fixture-frame-rack:focus{background:transparent!important;border:none!important;color:inherit!important;box-shadow:none!important}.fixture-result-dialog .fixture-frame-rack:disabled,.fixture-result-dialog .fixture-frame-rack[disabled]{background:transparent!important;border:none!important;opacity:.32;pointer-events:none}
+/* Rules page expandable sections */
+.rules-page>h1{font-family:Georgia,"Times New Roman",Times,serif}
+.rules-page__hint{margin:0 0 1.25rem;opacity:.75;font-size:.95em}
+.rules-section{margin:0 0 .35rem;border:none;background:transparent}
+.rules-section>summary{list-style:none;cursor:pointer;padding:.55rem 0 .55rem 1.35rem;position:relative;font-family:Georgia,"Times New Roman",Times,serif;font-size:1.15em;font-weight:700;line-height:1.35;letter-spacing:.01em;user-select:none;scroll-margin-top:.75rem}
+.rules-section>summary::-webkit-details-marker{display:none}
+.rules-section>summary::before{content:"";position:absolute;left:0;top:50%;width:.4rem;height:.4rem;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-60%) rotate(-45deg);transition:transform .15s ease;opacity:.7}
+.rules-section[open]>summary::before{transform:translateY(-35%) rotate(45deg)}
+.rules-section__body{padding:.15rem 0 .85rem 1.35rem;cursor:pointer;font-family:var(--body-font)}
+.rules-section__body>:first-child{margin-top:0}
+.rules-section__body blockquote{margin:0 0 1rem;padding:.5rem 0 .5rem 1rem;border-left:3px solid rgba(0,0,0,.2)}
+.rules-section__body h4{margin:1.1rem 0 .5rem;font-family:Georgia,"Times New Roman",Times,serif}

@@ -84,6 +84,11 @@ document.addEventListener('DOMContentLoaded', function() {
     TopBreaksPage.init();
   }
 
+  // Rules page (expandable sections)
+  if (document.querySelector('.rules-page') && typeof RulesPage !== 'undefined') {
+    RulesPage.init();
+  }
+
   // Under development page
   if (document.getElementById('under-development-root')) {
     UnderDevelopmentPage.init();
