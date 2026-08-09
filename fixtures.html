@@ -16,6 +16,7 @@
     <link rel="icon" type="image/png" sizes="96x96" href="assets/images/favicon-96.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="assets/images/favicon-180.png" />
     <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/brief-message.css" />
     <style>#filter-container.league-filter:not(.filters-visible),html.crossguns-knockout-comp #filter-container{display:none!important}</style>
     <script>
       try {
@@ -31,7 +32,9 @@
     <script src="assets/js/utils/nav-competition.js"></script>
     <script src="assets/js/utils/league-group-filter.js"></script>
     <script src="assets/js/utils/admin-mode.js"></script>
+    <script src="assets/js/utils/score-passcode.js"></script>
     <script src="assets/js/utils/formatters.js"></script>
+    <script src="assets/js/utils/brief-message.js"></script>
     <script src="assets/js/utils/image-loader.js"></script>
     <script src="assets/js/components/league-standings.js"></script>
     <script src="assets/js/utils/knockout-rounds.js"></script>
@@ -66,7 +69,7 @@
           <li>
             <button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button>
           </li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-passcodes.html" target="_self">Manage Passcodes</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
         </ul>
       </nav>
     </header>
@@ -91,6 +94,7 @@
           <dialog id="fixture-result-dialog" class="fixture-result-dialog" aria-labelledby="fixture-result-title">
             <form id="fixture-result-form" class="fixture-result-form">
               <h2 id="fixture-result-title" class="fixture-result-dialog__heading">Enter result</h2>
+              <p id="fixture-result-entered-by" class="fixture-result-entered-by" hidden></p>
               <input type="hidden" id="fixture-result-fixture-id" />
               <input type="hidden" id="fixture-result-player-a-id" />
               <input type="hidden" id="fixture-result-player-b-id" />

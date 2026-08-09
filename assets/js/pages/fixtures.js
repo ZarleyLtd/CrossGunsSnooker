@@ -1,4 +1,4 @@
-// Fixtures Page — upcoming list + Admin Mode result entry
+// Fixtures Page — upcoming list + result entry (Admin Mode or passcode session)
 
 var FixturesPage = {
   /** Dispatched on successful Save from the Enter result dialog (fixtures or results page). */
@@ -13,6 +13,9 @@ var FixturesPage = {
   /** True when dialog was opened for a fixture that already had a recorded result. */
   _dialogOpenedWithResult: false,
   _resultDialogBindingsDone: false,
+  /** Map playerId -> [{ date: 'YYYY-MM-DD', handicap: number }] newest first. */
+  _handicapHistoryByPlayer: null,
+  _handicapsLoadPromise: null,
   CLEAR_RESULT_CONFIRM_MSG:
     'Remove this result from the database?\n\nFrames are 0–0, so the recorded score will be cleared and this fixture will show as having no result. Any breaks already saved for this match will be deleted.',
   CLEAR_RESULT_INLINE_MSG:
@@ -64,6 +67,207 @@ var FixturesPage = {
     return typeof AdminMode !== 'undefined' && AdminMode.isUnlocked();
   },
 
+  isScorePassUnlocked: function () {
+    return typeof ScorePasscode !== 'undefined' && ScorePasscode.isUnlocked();
+  },
+
+  canEnterResult: function () {
+    return this.isAdmin() || this.isScorePassUnlocked();
+  },
+
+  /** Open result dialog if authorized; otherwise prompt for passcode first. */
+  requestOpenResultDialog: function (rowEl) {
+    var self = this;
+    if (this.canEnterResult()) {
+      this.openResultDialog(rowEl);
+      return;
+    }
+    if (typeof ScorePasscode === 'undefined') {
+      window.alert('Passcode entry is unavailable. Unlock Admin Mode from the menu.');
+      return;
+    }
+    ScorePasscode.openDialog(rowEl, function (row) {
+      self.openResultDialog(row);
+    });
+  },
+
+  formatEnteredByLabel: function (enteredBy) {
+    var by = String(enteredBy || '').trim();
+    if (!by) return '';
+    return 'Entered using ' + by;
+  },
+
+  updateDialogEnteredBy: function (enteredBy) {
+    var el = document.getElementById('fixture-result-entered-by');
+    if (!el) return;
+    var text = this.isAdmin() ? this.formatEnteredByLabel(enteredBy) : '';
+    el.textContent = text;
+    el.hidden = !text;
+  },
+
+  ensureHandicapsLoaded: function () {
+    var self = this;
+    if (this._handicapHistoryByPlayer) {
+      return Promise.resolve(this._handicapHistoryByPlayer);
+    }
+    if (this._handicapsLoadPromise) return this._handicapsLoadPromise;
+    this._handicapsLoadPromise = ApiClient.get({ action: 'getHandicaps' })
+      .then(function (r) {
+        var map = {};
+        (r.handicaps || []).forEach(function (h) {
+          var pid = String(h.playerId || '').trim();
+          if (!pid) return;
+          if (!map[pid]) map[pid] = [];
+          map[pid].push({
+            date: String(h['Handicap Date'] || '').trim(),
+            handicap: Number(h['Handicap']),
+          });
+        });
+        Object.keys(map).forEach(function (pid) {
+          map[pid].sort(function (a, b) {
+            return String(b.date).localeCompare(String(a.date));
+          });
+        });
+        self._handicapHistoryByPlayer = map;
+        return map;
+      })
+      .catch(function () {
+        self._handicapHistoryByPlayer = {};
+        return self._handicapHistoryByPlayer;
+      });
+    return this._handicapsLoadPromise;
+  },
+
+  handicapOnDate: function (playerId, matchDate) {
+    var pid = String(playerId || '').trim();
+    if (!pid) return null;
+    if (
+      typeof KnockoutRounds !== 'undefined' &&
+      KnockoutRounds.isWinnerOfPlayerId &&
+      KnockoutRounds.isWinnerOfPlayerId(pid)
+    ) {
+      return null;
+    }
+    var rows = (this._handicapHistoryByPlayer && this._handicapHistoryByPlayer[pid]) || [];
+    if (!rows.length) return null;
+    var md = String(matchDate || '').trim();
+    if (!md) {
+      var latest = rows[0];
+      return latest && Number.isFinite(latest.handicap) ? latest.handicap : null;
+    }
+    var i;
+    for (i = 0; i < rows.length; i++) {
+      if (!rows[i].date || rows[i].date <= md) {
+        return Number.isFinite(rows[i].handicap) ? rows[i].handicap : null;
+      }
+    }
+    return null;
+  },
+
+  formatHandicapBrief: function (value) {
+    var label =
+      typeof Formatters !== 'undefined' && Formatters.formatHandicapLabel
+        ? Formatters.formatHandicapLabel(value)
+        : '';
+    if (!label) return 'h/c: n/a';
+    return 'h/c: ' + label;
+  },
+
+  formatHandicapParen: function (value) {
+    if (typeof Formatters !== 'undefined' && Formatters.formatHandicapParenValue) {
+      return Formatters.formatHandicapParenValue(value);
+    }
+    if (value == null || value === '') return '';
+    var n = Number(value);
+    if (!Number.isFinite(n)) return '';
+    n = Math.trunc(n);
+    if (n === 0) return '0';
+    if (n > 0) return '+' + n;
+    return String(n);
+  },
+
+  playerLabelWithHandicap: function (name, playerId, matchDate) {
+    var base = String(name == null ? '' : name);
+    var hc = this.handicapOnDate(playerId, matchDate);
+    var paren = this.formatHandicapParen(hc);
+    if (!paren) return base;
+    return base + ' (' + paren + ')';
+  },
+
+  refreshResultDialogPlayerLabels: function () {
+    var nameA =
+      (document.getElementById('fixture-result-label-a') &&
+        document.getElementById('fixture-result-label-a').getAttribute('data-base-name')) ||
+      '';
+    var nameB =
+      (document.getElementById('fixture-result-label-b') &&
+        document.getElementById('fixture-result-label-b').getAttribute('data-base-name')) ||
+      '';
+    var pidA = (document.getElementById('fixture-result-player-a-id') || {}).value || '';
+    var pidB = (document.getElementById('fixture-result-player-b-id') || {}).value || '';
+    var dateEl = document.getElementById('fixture-result-date');
+    var matchDate = dateEl ? dateEl.value : '';
+    var labelA = document.getElementById('fixture-result-label-a');
+    var labelB = document.getElementById('fixture-result-label-b');
+    if (labelA) labelA.textContent = this.playerLabelWithHandicap(nameA, pidA, matchDate);
+    if (labelB) labelB.textContent = this.playerLabelWithHandicap(nameB, pidB, matchDate);
+  },
+
+  setResultDialogPlayerLabels: function (nameA, nameB) {
+    var labelA = document.getElementById('fixture-result-label-a');
+    var labelB = document.getElementById('fixture-result-label-b');
+    if (labelA) labelA.setAttribute('data-base-name', String(nameA == null ? '' : nameA));
+    if (labelB) labelB.setAttribute('data-base-name', String(nameB == null ? '' : nameB));
+    var self = this;
+    if (this._handicapHistoryByPlayer) {
+      this.refreshResultDialogPlayerLabels();
+      return;
+    }
+    if (labelA) labelA.textContent = String(nameA == null ? '' : nameA);
+    if (labelB) labelB.textContent = String(nameB == null ? '' : nameB);
+    this.ensureHandicapsLoaded().then(function () {
+      self.refreshResultDialogPlayerLabels();
+    });
+  },
+
+  showPlayerHandicapBrief: function (anchorEl, playerId, matchDate) {
+    var self = this;
+    function show() {
+      var text = self.formatHandicapBrief(self.handicapOnDate(playerId, matchDate));
+      if (typeof window.BriefMessage !== 'undefined' && window.BriefMessage.show) {
+        window.BriefMessage.show(text, anchorEl, { durationMs: 1200 });
+      }
+    }
+    if (this._handicapHistoryByPlayer) {
+      show();
+      return;
+    }
+    this.ensureHandicapsLoaded().then(show, show);
+  },
+
+  makePlayerNameEl: function (name, playerId, matchDate, align) {
+    var self = this;
+    // Plain span (not <button>) so global button hover/border styles never apply.
+    var el = document.createElement('span');
+    el.className = 'fixture-player-name';
+    el.textContent = name;
+    el.style.flex = '1';
+    el.style.textAlign = align === 'left' ? 'left' : 'right';
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('aria-label', 'Show handicap for ' + name);
+    function onActivate(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      self.showPlayerHandicapBrief(el, playerId, matchDate);
+    }
+    el.addEventListener('click', onActivate);
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') onActivate(e);
+    });
+    return el;
+  },
+
   localISODate: function () {
     var d = new Date();
     var y = d.getFullYear();
@@ -97,6 +301,7 @@ var FixturesPage = {
       });
     }
     this.bindResultDialog();
+    this.ensureHandicapsLoaded();
     await CurrentCompetition.whenReady(function () {
       return self.refreshFilterAndRender();
     });
@@ -206,6 +411,13 @@ var FixturesPage = {
         }
       });
     });
+    var dateEl = document.getElementById('fixture-result-date');
+    if (dateEl && !dateEl.getAttribute('data-hc-label-bound')) {
+      dateEl.setAttribute('data-hc-label-bound', '1');
+      dateEl.addEventListener('change', function () {
+        self.refreshResultDialogPlayerLabels();
+      });
+    }
     this._resultDialogBindingsDone = true;
   },
 
@@ -280,29 +492,30 @@ var FixturesPage = {
     ['a', 'b'].forEach(function (side) {
       var host = document.getElementById('fixture-frame-racks-' + side);
       if (!host) return;
-      if (host.getAttribute('data-racks-built') === 'controls-v2') return;
+      if (host.getAttribute('data-racks-built') === 'controls-h1') return;
+      var num = document.getElementById('fixture-result-score-' + side + '-display');
       host.innerHTML = '';
-      var col = document.createElement('div');
-      col.className = 'fixture-frame-racks-col';
-      [
-        { action: 'inc', inverted: false, label: 'Increase score' },
-        { action: 'dec', inverted: true, label: 'Decrease score' },
-      ].forEach(function (spec) {
+
+      function makeBtn(action, inverted, label) {
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'fixture-frame-rack';
-        if (spec.inverted) btn.classList.add('fixture-frame-rack--inverted');
-        btn.setAttribute('data-rack-action', spec.action);
-        btn.setAttribute('aria-label', spec.label);
+        if (inverted) btn.classList.add('fixture-frame-rack--inverted');
+        btn.setAttribute('data-rack-action', action);
+        btn.setAttribute('aria-label', label);
         var icon = document.createElement('span');
         icon.className = 'fixture-frame-rack-icon';
         icon.setAttribute('aria-hidden', 'true');
         icon.appendChild(self.createFrameRackSvg());
         btn.appendChild(icon);
-        col.appendChild(btn);
-      });
-      host.appendChild(col);
-      host.setAttribute('data-racks-built', 'controls-v2');
+        return btn;
+      }
+
+      // Left = decrease, center = score, right = increase
+      host.appendChild(makeBtn('dec', true, 'Decrease score'));
+      if (num) host.appendChild(num);
+      host.appendChild(makeBtn('inc', false, 'Increase score'));
+      host.setAttribute('data-racks-built', 'controls-h1');
     });
   },
 
@@ -507,6 +720,9 @@ var FixturesPage = {
       container.appendChild(h3);
 
       grouped[week].forEach(function (match) {
+        var wrap = document.createElement('div');
+        wrap.className = 'fixture-row-wrap';
+
         var div = document.createElement('div');
         div.className = 'fixture-row';
         div.style.display = 'flex';
@@ -532,14 +748,25 @@ var FixturesPage = {
         div.setAttribute('data-best-of', String(self.normalizeBestOf(match.bestOf)));
         var resultReady = self.fixtureResultReady(match, isKnockout, winnersByCode);
         div.setAttribute('data-result-ready', resultReady ? 'true' : 'false');
+        var enteredBy = String(match.resultEnteredBy || '').trim();
+        if (enteredBy) div.setAttribute('data-result-entered-by', enteredBy);
 
-        var playerA = document.createElement('span');
-        playerA.textContent = nameA;
-        playerA.style.flex = '1';
-        playerA.style.textAlign = 'right';
+        var matchDate = match['Match Date'] || '';
+        var playerA = self.makePlayerNameEl(
+          nameA,
+          match.playerAId,
+          matchDate,
+          'right'
+        );
+        var playerB = self.makePlayerNameEl(
+          nameB,
+          match.playerBId,
+          matchDate,
+          'left'
+        );
 
         var center;
-        if (self.isAdmin() && fid && resultReady) {
+        if (fid && resultReady) {
           center = document.createElement('button');
           center.type = 'button';
           center.className = 'fixture-vs-btn';
@@ -549,13 +776,13 @@ var FixturesPage = {
             'Enter result for ' + nameA + ' vs ' + nameB
           );
           center.addEventListener('click', function () {
-            self.openResultDialog(div);
+            self.requestOpenResultDialog(div);
           });
         } else {
           center = document.createElement('span');
           center.className = 'fixture-vs-static';
           center.textContent = 'V';
-          if (self.isAdmin() && fid && !resultReady) {
+          if (fid && !resultReady) {
             center.setAttribute(
               'title',
               'Result entry is available once both players are known'
@@ -564,15 +791,11 @@ var FixturesPage = {
         }
         center.style.flex = '0 0 auto';
 
-        var playerB = document.createElement('span');
-        playerB.textContent = nameB;
-        playerB.style.flex = '1';
-        playerB.style.textAlign = 'left';
-
         div.appendChild(playerA);
         div.appendChild(center);
         div.appendChild(playerB);
-        container.appendChild(div);
+        wrap.appendChild(div);
+        container.appendChild(wrap);
       });
     });
   },
@@ -663,11 +886,11 @@ var FixturesPage = {
     document.getElementById('fixture-result-player-a-id').value = pidA;
     document.getElementById('fixture-result-player-b-id').value = pidB;
 
-    document.getElementById('fixture-result-label-a').textContent = nameA;
-    document.getElementById('fixture-result-label-b').textContent = nameB;
+    this.updateDialogEnteredBy(rowEl.getAttribute('data-result-entered-by'));
 
     var dateEl = document.getElementById('fixture-result-date');
     dateEl.value = prevDate && String(prevDate).trim() ? prevDate : this.localISODate();
+    this.setResultDialogPlayerLabels(nameA, nameB);
 
     this.ensureFrameRacksBuilt();
     this.initPlayerScores();
@@ -754,9 +977,9 @@ var FixturesPage = {
 
     if (!fixtureId) throw new Error('Missing fixture');
 
-    if (typeof AdminMode !== 'undefined' && !AdminMode.isUnlocked()) {
+    if (!this.canEnterResult()) {
       throw new Error(
-        'Admin Mode is locked or expired. Use Unlock Admin Mode in the menu, then save again.'
+        'Enter a passcode or unlock Admin Mode from the menu, then save again.'
       );
     }
 

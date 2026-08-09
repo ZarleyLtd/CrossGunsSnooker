@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Manage Players - CrossGuns Snooker League</title>
+    <title>Edit Passcode - CrossGuns Snooker League</title>
     <link rel="stylesheet" href="assets/css/style.css" />
     <link rel="stylesheet" href="assets/css/admin-panel.css" />
     <noscript
@@ -19,7 +19,8 @@
     <script src="assets/js/utils/admin-mode.js"></script>
     <script src="assets/js/utils/formatters.js"></script>
     <script src="assets/js/utils/image-loader.js"></script>
-    <script defer src="assets/js/pages/admin-players.js"></script>
+    <script src="assets/js/utils/player-slug.js"></script>
+    <script defer src="assets/js/pages/admin-passcode.js"></script>
     <script defer src="assets/js/main.js"></script>
   </head>
   <body class="page-template">
@@ -50,7 +51,7 @@
       <article class="content">
         <div class="hero">
           <header class="hero__content hero__content--centered">
-            <div class="wrapper"><h1>Manage Players</h1></div>
+            <div class="wrapper"><h1 id="adminPasscodeTitle">Edit Passcode</h1></div>
           </header>
           <figure class="hero__image">
             <div class="hero__image-wrapper">
@@ -58,18 +59,35 @@
             </div>
           </figure>
         </div>
-        <div class="entry-wrapper content__entry" id="adminPlayersRoot">
-          <p id="adminPlayersGate" class="msg msg--info">
-            Unlock <strong>Admin Mode</strong> from the menu to manage players and handicaps.
+        <div class="entry-wrapper content__entry" id="adminPasscodeRoot">
+          <p id="adminPasscodeGate" class="msg msg--info">
+            Unlock <strong>Admin Mode</strong> from the menu to manage passcodes.
           </p>
-          <div id="adminPlayersPanel" class="admin-container" hidden>
-            <p id="adminPlMsg" class="msg" hidden></p>
+          <div id="adminPasscodePanel" class="admin-container" hidden>
             <div class="admin-toolbar">
-              <button type="button" class="btn" id="adminPlAddBtn">+ Add Player</button>
+              <a href="admin-passcodes.html" class="btn">&larr; Passcodes</a>
             </div>
-            <div id="adminPlList" class="admin-player-picks admin-item-list">
-              <p class="admin-player-picks__hint"><em>Loading players…</em></p>
-            </div>
+            <p id="adminPasscodeMsg" class="msg" hidden></p>
+
+            <form id="adminPasscodeForm">
+              <div class="admin-form-group">
+                <label for="adminPasscodeName">Passcode Name</label>
+                <input type="text" id="adminPasscodeName" required autocomplete="off" />
+              </div>
+              <div class="admin-form-group">
+                <label for="adminPasscodeCode">Passcode Code</label>
+                <input type="text" id="adminPasscodeCode" required autocomplete="off" />
+              </div>
+              <div class="admin-form-actions">
+                <div class="admin-form-actions__left">
+                  <button type="button" class="btn btn-danger" id="adminPasscodeDelete" hidden>Delete Passcode</button>
+                </div>
+                <div class="admin-form-actions__right">
+                  <a href="admin-passcodes.html" class="btn btn-secondary">Cancel</a>
+                  <button type="submit" class="btn btn-save">Save Passcode</button>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       </article>

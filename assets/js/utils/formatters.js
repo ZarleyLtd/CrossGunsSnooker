@@ -53,5 +53,35 @@ const Formatters = {
   truncateName: function(name, maxLength = 16) {
     name = this.safeString(name);
     return name.length > maxLength ? name.slice(0, maxLength - 2) + '..' : name;
+  },
+
+  /**
+   * Display label for a snooker handicap value.
+   * @param {number|null|undefined} value
+   * @returns {string} e.g. "Minus 5", "Zero", "+35"
+   */
+  formatHandicapLabel: function (value) {
+    if (value == null || value === '') return '';
+    var n = Number(value);
+    if (!Number.isFinite(n)) return '';
+    n = Math.trunc(n);
+    if (n === 0) return 'Zero';
+    if (n < 0) return 'Minus ' + Math.abs(n);
+    return '+' + n;
+  },
+
+  /**
+   * Compact handicap for labels, e.g. "0", "-5", "+30".
+   * @param {number|null|undefined} value
+   * @returns {string}
+   */
+  formatHandicapParenValue: function (value) {
+    if (value == null || value === '') return '';
+    var n = Number(value);
+    if (!Number.isFinite(n)) return '';
+    n = Math.trunc(n);
+    if (n === 0) return '0';
+    if (n > 0) return '+' + n;
+    return String(n);
   }
 };

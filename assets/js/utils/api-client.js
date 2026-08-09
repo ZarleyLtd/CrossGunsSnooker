@@ -56,7 +56,8 @@ const ApiClient = {
   /**
    * Make a POST request to the backend API. Uses form-encoded body (simple CORS).
    * Sends adminToken from options.adminToken, or sessionStorage key crossgunsAdminToken,
-   * except for action adminLogin (no token attached).
+   * except for action adminLogin / verifyPasscode (no token attached).
+   * For score actions, falls back to the score-passcode session token when Admin is locked.
    * @param {string} action
    * @param {Object} data
    * @param {{ adminToken?: string|null }} [options]
@@ -76,15 +77,24 @@ const ApiClient = {
 
       const payload = { action: action, data: data || {} };
       const opts = options || {};
+      const noTokenActions = { adminLogin: true, verifyPasscode: true };
+      const scoreActions = {
+        updateFixtureResult: true,
+        upsertBreak: true,
+        deleteBreak: true,
+      };
       let token = opts.adminToken;
-      if (token === undefined && typeof sessionStorage !== 'undefined' && action !== 'adminLogin') {
+      if (token === undefined && typeof sessionStorage !== 'undefined' && !noTokenActions[action]) {
         token = sessionStorage.getItem('crossgunsAdminToken');
+        if ((!token || !String(token).trim()) && scoreActions[action]) {
+          token = sessionStorage.getItem('crossgunsScorePassToken');
+        }
       }
       if (typeof token === 'string') {
         token = token.trim();
         if (!token) token = null;
       }
-      if (token && action !== 'adminLogin') {
+      if (token && !noTokenActions[action]) {
         payload.adminToken = token;
       }
 

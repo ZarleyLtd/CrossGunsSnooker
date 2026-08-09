@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Manage Players - CrossGuns Snooker League</title>
+    <title>Manage Passcodes - CrossGuns Snooker League</title>
     <link rel="stylesheet" href="assets/css/style.css" />
     <link rel="stylesheet" href="assets/css/admin-panel.css" />
     <noscript
@@ -19,7 +19,7 @@
     <script src="assets/js/utils/admin-mode.js"></script>
     <script src="assets/js/utils/formatters.js"></script>
     <script src="assets/js/utils/image-loader.js"></script>
-    <script defer src="assets/js/pages/admin-players.js"></script>
+    <script defer src="assets/js/pages/admin-passcodes.js"></script>
     <script defer src="assets/js/main.js"></script>
   </head>
   <body class="page-template">
@@ -50,7 +50,7 @@
       <article class="content">
         <div class="hero">
           <header class="hero__content hero__content--centered">
-            <div class="wrapper"><h1>Manage Players</h1></div>
+            <div class="wrapper"><h1>Manage Passcodes</h1></div>
           </header>
           <figure class="hero__image">
             <div class="hero__image-wrapper">
@@ -58,17 +58,17 @@
             </div>
           </figure>
         </div>
-        <div class="entry-wrapper content__entry" id="adminPlayersRoot">
-          <p id="adminPlayersGate" class="msg msg--info">
-            Unlock <strong>Admin Mode</strong> from the menu to manage players and handicaps.
+        <div class="entry-wrapper content__entry" id="adminPasscodesRoot">
+          <p id="adminPasscodesGate" class="msg msg--info">
+            Unlock <strong>Admin Mode</strong> from the menu to manage passcodes.
           </p>
-          <div id="adminPlayersPanel" class="admin-container" hidden>
-            <p id="adminPlMsg" class="msg" hidden></p>
+          <div id="adminPasscodesPanel" class="admin-container" hidden>
+            <p id="adminPcMsg" class="msg" hidden></p>
             <div class="admin-toolbar">
-              <button type="button" class="btn" id="adminPlAddBtn">+ Add Player</button>
+              <button type="button" class="btn" id="adminPcAddBtn">+ Add Passcode</button>
             </div>
-            <div id="adminPlList" class="admin-player-picks admin-item-list">
-              <p class="admin-player-picks__hint"><em>Loading players…</em></p>
+            <div id="adminPcList" class="admin-player-picks admin-item-list">
+              <p class="admin-player-picks__hint"><em>Loading passcodes…</em></p>
             </div>
           </div>
         </div>

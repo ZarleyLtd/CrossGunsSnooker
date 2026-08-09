@@ -1,4 +1,4 @@
-// Results Page — match results; admin can edit via same dialog as Fixtures
+// Results Page — match results; edit via same dialog as Fixtures (Admin or passcode)
 
 var ResultsPage = {
   KO_LABELS: {
@@ -72,6 +72,7 @@ var ResultsPage = {
 
     if (typeof FixturesPage !== 'undefined') {
       FixturesPage.bindResultDialog();
+      if (FixturesPage.ensureHandicapsLoaded) FixturesPage.ensureHandicapsLoaded();
     }
 
     await CurrentCompetition.whenReady(function () {
@@ -268,14 +269,31 @@ var ResultsPage = {
         var aScore = parseInt(parts[0] ? parts[0].trim() : '', 10);
         var bScore = parseInt(parts[1] ? parts[1].trim() : '', 10);
 
-        var playerA = document.createElement('span');
-        playerA.textContent = playerAName;
-        playerA.style.flex = '1';
-        playerA.style.textAlign = 'right';
-        if (!isNaN(aScore) && !isNaN(bScore) && aScore > bScore) playerA.style.fontWeight = 'bold';
+        var enteredBy = String(match.resultEnteredBy || '').trim();
+        if (enteredBy) div.setAttribute('data-result-entered-by', enteredBy);
+
+        var matchDate = match['Match Date'] || '';
+        var playerA =
+          typeof FixturesPage !== 'undefined' && FixturesPage.makePlayerNameEl
+            ? FixturesPage.makePlayerNameEl(
+                playerAName,
+                match.playerAId,
+                matchDate,
+                'right'
+              )
+            : (function () {
+                var el = document.createElement('span');
+                el.textContent = playerAName;
+                el.style.flex = '1';
+                el.style.textAlign = 'right';
+                return el;
+              })();
+        if (!isNaN(aScore) && !isNaN(bScore) && aScore > bScore) {
+          playerA.style.fontWeight = 'bold';
+        }
 
         var resultEl;
-        if (self.isAdmin() && fid && typeof FixturesPage !== 'undefined') {
+        if (fid && typeof FixturesPage !== 'undefined') {
           resultEl = document.createElement('button');
           resultEl.type = 'button';
           resultEl.className = 'results-score-btn';
@@ -290,31 +308,43 @@ var ResultsPage = {
               playerBName
           );
           resultEl.addEventListener('click', function () {
-            FixturesPage.openResultDialog(div);
+            FixturesPage.requestOpenResultDialog(div);
           });
         } else {
           resultEl = document.createElement('span');
           resultEl.textContent = '[' + resultStr + ']';
-          resultEl.style.flex = '0 0 auto';
-          resultEl.style.fontWeight = 'bold';
-          resultEl.style.minWidth = '3.5em';
-          resultEl.style.textAlign = 'center';
         }
         resultEl.style.flex = '0 0 auto';
         resultEl.style.fontWeight = 'bold';
         resultEl.style.minWidth = '3.5em';
         resultEl.style.textAlign = 'center';
 
-        var playerB = document.createElement('span');
-        playerB.textContent = playerBName;
-        playerB.style.flex = '1';
-        playerB.style.textAlign = 'left';
-        if (!isNaN(aScore) && !isNaN(bScore) && bScore > aScore) playerB.style.fontWeight = 'bold';
+        var playerB =
+          typeof FixturesPage !== 'undefined' && FixturesPage.makePlayerNameEl
+            ? FixturesPage.makePlayerNameEl(
+                playerBName,
+                match.playerBId,
+                matchDate,
+                'left'
+              )
+            : (function () {
+                var el = document.createElement('span');
+                el.textContent = playerBName;
+                el.style.flex = '1';
+                el.style.textAlign = 'left';
+                return el;
+              })();
+        if (!isNaN(aScore) && !isNaN(bScore) && bScore > aScore) {
+          playerB.style.fontWeight = 'bold';
+        }
 
+        var wrap = document.createElement('div');
+        wrap.className = 'fixture-row-wrap';
         div.appendChild(playerA);
         div.appendChild(resultEl);
         div.appendChild(playerB);
-        container.appendChild(div);
+        wrap.appendChild(div);
+        container.appendChild(wrap);
       });
     });
   },

@@ -24,10 +24,14 @@
 // body field `data` JSON):
 //   { "action": "...", "data": { ... }, "adminToken": "<HMAC token>" }
 // Env CROSSGUNS_ADMIN_SECRET required for admin. Actions:
-//   adminLogin (pin only), upsertPlayer, upsertSeasonPlayer, upsertHandicap,
+//   adminLogin (pin only), verifyPasscode (public; mints scorer token),
+//   getPasscodes / upsertPasscode / deletePasscode (admin),
+//   upsertPlayer, upsertSeasonPlayer, upsertHandicap,
 //   upsertSeason, upsertLeague, upsertFixture, updateFixtureResult,
 //   upsertBreak, deleteBreak, deleteFixture, deleteHandicap, deletePlayer,
 //   deleteSeason, deleteLeague, upsertSeasonGroup
+// Score entry (updateFixtureResult, upsertBreak, deleteBreak) accepts admin
+// or scorer tokens; result_entered_by is set from the token role/name.
 //
 // Standings ordering = the full CrossGuns tiebreak chain:
 //   1. points desc
@@ -104,7 +108,18 @@ type FixtureRow = {
   score_b: number | null;
   sort_order: number;
   best_of: number;
+  result_entered_by: string | null;
 };
+type PasscodeRow = {
+  passcode_id: string;
+  passcode_name: string;
+  passcode_code: string;
+  active: boolean;
+};
+type TokenRole = "admin" | "scorer";
+type TokenInfo =
+  | { ok: true; role: TokenRole; name: string }
+  | { ok: false };
 type StandingRow = {
   season_id: string;
   league_id: string;
@@ -581,7 +596,7 @@ async function handleGetFixtures(req: Request): Promise<Response> {
       select fixture_id, season_id, league_id, stage, round_label,
              player_a_id, player_b_id,
              to_char(match_date, 'YYYY-MM-DD') as match_date,
-             score_a, score_b, sort_order, best_of
+             score_a, score_b, sort_order, best_of, result_entered_by
       from crossguns.fixtures
       where season_id = ${seasonId}
       order by sort_order asc, round_label asc
@@ -616,6 +631,7 @@ async function handleGetFixtures(req: Request): Promise<Response> {
       bestOf: r.best_of,
       playerAId: r.player_a_id,
       playerBId: r.player_b_id,
+      resultEnteredBy: r.result_entered_by ?? "",
     };
   });
 
@@ -1110,8 +1126,18 @@ type PostEnvelope = {
 
 const ADMIN_TOKEN_TTL_SEC = 24 * 60 * 60;
 
+const SCORE_POST_ACTIONS = new Set([
+  "updateFixtureResult",
+  "upsertBreak",
+  "deleteBreak",
+]);
+
 const ADMIN_POST_ACTIONS = new Set([
   "adminLogin",
+  "verifyPasscode",
+  "getPasscodes",
+  "upsertPasscode",
+  "deletePasscode",
   "upsertPlayer",
   "upsertSeasonPlayer",
   "upsertHandicap",
@@ -1128,6 +1154,11 @@ const ADMIN_POST_ACTIONS = new Set([
   "deleteLeague",
   "upsertSeasonGroup",
 ]);
+
+/** Simple in-memory rate limit for verifyPasscode (per isolate). */
+const VERIFY_PASSCODE_WINDOW_MS = 60_000;
+const VERIFY_PASSCODE_MAX = 20;
+const verifyPasscodeHits = new Map<string, { count: number; resetAt: number }>();
 
 function getAdminSecret(): string {
   return (Deno.env.get("CROSSGUNS_ADMIN_SECRET") ?? "").trim();
@@ -1177,11 +1208,16 @@ async function signAdminPayload(secret: string, payloadB64: string): Promise<str
   return base64UrlEncode(new Uint8Array(sig));
 }
 
-async function mintAdminToken(): Promise<{ token: string; expiresAt: string }> {
+async function mintToken(
+  role: TokenRole,
+  name = "",
+): Promise<{ token: string; expiresAt: string }> {
   const secret = getAdminSecret();
   if (!secret) throw new Error("Admin login unavailable");
   const exp = Math.floor(Date.now() / 1000) + ADMIN_TOKEN_TTL_SEC;
-  const payload = JSON.stringify({ exp });
+  const payload = JSON.stringify(
+    role === "scorer" ? { exp, role, name } : { exp, role: "admin" },
+  );
   const payloadB64 = base64UrlEncode(new TextEncoder().encode(payload));
   const sig = await signAdminPayload(secret, payloadB64);
   return {
@@ -1190,26 +1226,48 @@ async function mintAdminToken(): Promise<{ token: string; expiresAt: string }> {
   };
 }
 
-async function verifyAdminToken(token: string | undefined): Promise<boolean> {
+async function mintAdminToken(): Promise<{ token: string; expiresAt: string }> {
+  return mintToken("admin");
+}
+
+async function verifyToken(token: string | undefined): Promise<TokenInfo> {
   const secret = getAdminSecret();
-  if (!secret || !token) return false;
+  if (!secret || !token) return { ok: false };
   const parts = token.split(".");
-  if (parts.length !== 2) return false;
+  if (parts.length !== 2) return { ok: false };
   const payloadB64 = parts[0]!;
   const sigB64 = parts[1]!;
   try {
     const expectedSigB64 = await signAdminPayload(secret, payloadB64);
     const expectedBytes = base64UrlDecode(expectedSigB64);
     const actualBytes = base64UrlDecode(sigB64);
-    if (!timingSafeEqualBytes(expectedBytes, actualBytes)) return false;
+    if (!timingSafeEqualBytes(expectedBytes, actualBytes)) return { ok: false };
     const payloadJson = new TextDecoder().decode(base64UrlDecode(payloadB64));
-    const payload = JSON.parse(payloadJson) as { exp?: number };
+    const payload = JSON.parse(payloadJson) as {
+      exp?: number;
+      role?: string;
+      name?: string;
+    };
     const exp = Number(payload.exp);
-    if (!Number.isFinite(exp)) return false;
-    return exp > Math.floor(Date.now() / 1000);
+    if (!Number.isFinite(exp) || exp <= Math.floor(Date.now() / 1000)) {
+      return { ok: false };
+    }
+    // Legacy tokens (no role) are treated as admin.
+    const roleRaw = String(payload.role ?? "admin");
+    if (roleRaw === "scorer") {
+      const name = String(payload.name ?? "").trim();
+      if (!name) return { ok: false };
+      return { ok: true, role: "scorer", name };
+    }
+    return { ok: true, role: "admin", name: "Admin" };
   } catch {
-    return false;
+    return { ok: false };
   }
+}
+
+function enteredByFromToken(info: Extract<TokenInfo, { ok: true }>): string {
+  if (info.role === "scorer") return info.name;
+  return "Admin";
 }
 
 async function parsePostEnvelope(req: Request): Promise<PostEnvelope | null> {
@@ -1239,10 +1297,54 @@ async function requireAdmin(envelope: PostEnvelope): Promise<Response | null> {
       "Missing admin token. Unlock Admin Mode from the site menu, then try again.",
     );
   }
-  if (await verifyAdminToken(token)) return null;
+  const info = await verifyToken(token);
+  if (info.ok && info.role === "admin") return null;
   return unauthorizedResponse(
     "Invalid or expired admin session. Unlock Admin Mode again from the menu.",
   );
+}
+
+async function requireAdminOrScorer(
+  envelope: PostEnvelope,
+): Promise<{ denied: Response } | { denied: null; token: Extract<TokenInfo, { ok: true }> }> {
+  const raw = envelope.adminToken;
+  const token = typeof raw === "string" ? raw.trim() : "";
+  if (!token) {
+    return {
+      denied: unauthorizedResponse(
+        "Missing auth token. Unlock Admin Mode or enter a passcode, then try again.",
+      ),
+    };
+  }
+  const info = await verifyToken(token);
+  if (info.ok && (info.role === "admin" || info.role === "scorer")) {
+    return { denied: null, token: info };
+  }
+  return {
+    denied: unauthorizedResponse(
+      "Invalid or expired session. Unlock Admin Mode or enter a passcode again.",
+    ),
+  };
+}
+
+function clientIp(req: Request): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("cf-connecting-ip") ||
+    "unknown"
+  );
+}
+
+function allowVerifyPasscode(ip: string): boolean {
+  const now = Date.now();
+  const row = verifyPasscodeHits.get(ip);
+  if (!row || now >= row.resetAt) {
+    verifyPasscodeHits.set(ip, { count: 1, resetAt: now + VERIFY_PASSCODE_WINDOW_MS });
+    return true;
+  }
+  if (row.count >= VERIFY_PASSCODE_MAX) return false;
+  row.count += 1;
+  return true;
 }
 
 async function handleAdminLogin(data: Record<string, unknown>): Promise<Response> {
@@ -1252,6 +1354,95 @@ async function handleAdminLogin(data: Record<string, unknown>): Promise<Response
   if (!timingSafeEqualStr(pin, secret)) return unauthorizedResponse("Invalid PIN");
   const { token, expiresAt } = await mintAdminToken();
   return jsonResponse({ success: true, token, expiresAt });
+}
+
+async function handleVerifyPasscode(
+  data: Record<string, unknown>,
+  req: Request,
+): Promise<Response> {
+  const secret = getAdminSecret();
+  if (!secret) return errorResponse("Passcode login not configured", 503);
+  const ip = clientIp(req);
+  if (!allowVerifyPasscode(ip)) {
+    return errorResponse("Too many passcode attempts. Try again in a minute.", 429);
+  }
+  const code = String(data.code ?? data.passcode ?? "").trim();
+  if (!code) return unauthorizedResponse("Passcode required");
+
+  const sql = db();
+  const rows = await sql<PasscodeRow[]>`
+    select passcode_id, passcode_name, passcode_code, active
+    from crossguns.passcodes
+    where active = true
+      and lower(trim(passcode_code)) = lower(trim(${code}))
+    limit 1
+  `;
+  const row = rows[0];
+  if (!row) return unauthorizedResponse("Invalid passcode");
+
+  const { token, expiresAt } = await mintToken("scorer", row.passcode_name);
+  return jsonResponse({
+    success: true,
+    token,
+    expiresAt,
+    passcodeName: row.passcode_name,
+  });
+}
+
+async function handleGetPasscodes(): Promise<Response> {
+  const sql = db();
+  const rows = await sql<PasscodeRow[]>`
+    select passcode_id, passcode_name, passcode_code, active
+    from crossguns.passcodes
+    order by lower(passcode_name) asc
+  `;
+  const passcodes = rows.map((r) => ({
+    passcodeId: r.passcode_id,
+    passcodeName: r.passcode_name,
+    passcodeCode: r.passcode_code,
+    active: r.active,
+  }));
+  return jsonResponse({ success: true, passcodes });
+}
+
+async function handleUpsertPasscode(data: Record<string, unknown>): Promise<Response> {
+  const passcodeId = String(data.passcodeId ?? "").trim();
+  const passcodeName = String(data.passcodeName ?? "").trim();
+  const passcodeCode = String(data.passcodeCode ?? "").trim();
+  if (!passcodeId || !passcodeName || !passcodeCode) {
+    return errorResponse("passcodeId, passcodeName and passcodeCode required");
+  }
+  const active = data.active === undefined ? true : Boolean(data.active);
+  const sql = db();
+  try {
+    await sql`
+      insert into crossguns.passcodes (
+        passcode_id, passcode_name, passcode_code, active, updated_at
+      ) values (
+        ${passcodeId}, ${passcodeName}, ${passcodeCode}, ${active}, now()
+      )
+      on conflict (passcode_id) do update set
+        passcode_name = excluded.passcode_name,
+        passcode_code = excluded.passcode_code,
+        active = excluded.active,
+        updated_at = now()
+    `;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (/unique|duplicate/i.test(message)) {
+      return errorResponse("Passcode name or code already exists", 409);
+    }
+    throw err;
+  }
+  return jsonResponse({ success: true });
+}
+
+async function handleDeletePasscode(data: Record<string, unknown>): Promise<Response> {
+  const passcodeId = String(data.passcodeId ?? "").trim();
+  if (!passcodeId) return errorResponse("passcodeId required");
+  const sql = db();
+  await sql`delete from crossguns.passcodes where passcode_id = ${passcodeId}`;
+  return jsonResponse({ success: true });
 }
 
 async function handleUpsertPlayer(data: Record<string, unknown>): Promise<Response> {
@@ -1619,7 +1810,10 @@ async function handleUpsertFixture(data: Record<string, unknown>): Promise<Respo
   return jsonResponse({ success: true });
 }
 
-async function handleUpdateFixtureResult(data: Record<string, unknown>): Promise<Response> {
+async function handleUpdateFixtureResult(
+  data: Record<string, unknown>,
+  enteredBy: string,
+): Promise<Response> {
   const fixtureId = String(data.fixtureId ?? "").trim();
   if (!fixtureId) return errorResponse("fixtureId required");
   const scoreA = parseNullableScore(data.scoreA);
@@ -1639,6 +1833,7 @@ async function handleUpdateFixtureResult(data: Record<string, unknown>): Promise
     if (md === null || md === "") matchDateVal = null;
     else matchDateVal = String(md).trim();
   }
+  const by = String(enteredBy || "").trim() || "Admin";
 
   const sql = db();
   if (hasMatchDate) {
@@ -1647,6 +1842,7 @@ async function handleUpdateFixtureResult(data: Record<string, unknown>): Promise
       set score_a = ${scoreA === null ? null : Math.trunc(scoreA)},
           score_b = ${scoreB === null ? null : Math.trunc(scoreB)},
           match_date = ${matchDateVal},
+          result_entered_by = ${by},
           updated_at = now()
       where fixture_id = ${fixtureId}::uuid
     `;
@@ -1655,6 +1851,7 @@ async function handleUpdateFixtureResult(data: Record<string, unknown>): Promise
       update crossguns.fixtures
       set score_a = ${scoreA === null ? null : Math.trunc(scoreA)},
           score_b = ${scoreB === null ? null : Math.trunc(scoreB)},
+          result_entered_by = ${by},
           updated_at = now()
       where fixture_id = ${fixtureId}::uuid
     `;
@@ -1803,25 +2000,48 @@ async function handleDeleteLeague(data: Record<string, unknown>): Promise<Respon
   return jsonResponse({ success: true });
 }
 
-async function dispatchPost(envelope: PostEnvelope): Promise<Response> {
+async function dispatchPost(envelope: PostEnvelope, req: Request): Promise<Response> {
   if (!ADMIN_POST_ACTIONS.has(envelope.action)) {
     return errorResponse(`Unknown action: ${envelope.action}`, 400);
   }
-  if (envelope.action !== "adminLogin") {
-    const denied = await requireAdmin(envelope);
-    if (denied) return denied;
+
+  if (envelope.action === "adminLogin") {
+    return handleAdminLogin(envelope.data);
   }
+  if (envelope.action === "verifyPasscode") {
+    return handleVerifyPasscode(envelope.data, req);
+  }
+
+  if (SCORE_POST_ACTIONS.has(envelope.action)) {
+    const auth = await requireAdminOrScorer(envelope);
+    if (auth.denied) return auth.denied;
+    switch (envelope.action) {
+      case "updateFixtureResult":
+        return handleUpdateFixtureResult(
+          envelope.data,
+          enteredByFromToken(auth.token),
+        );
+      case "upsertBreak":
+        return handleUpsertBreak(envelope.data);
+      case "deleteBreak":
+        return handleDeleteBreak(envelope.data);
+      default:
+        return errorResponse(`Unknown action: ${envelope.action}`, 400);
+    }
+  }
+
+  const denied = await requireAdmin(envelope);
+  if (denied) return denied;
   switch (envelope.action) {
-    case "adminLogin":         return handleAdminLogin(envelope.data);
+    case "getPasscodes":       return handleGetPasscodes();
+    case "upsertPasscode":     return handleUpsertPasscode(envelope.data);
+    case "deletePasscode":     return handleDeletePasscode(envelope.data);
     case "upsertPlayer":       return handleUpsertPlayer(envelope.data);
     case "upsertSeasonPlayer": return handleUpsertSeasonPlayer(envelope.data);
     case "upsertHandicap":     return handleUpsertHandicap(envelope.data);
     case "upsertSeason":       return handleUpsertSeason(envelope.data);
     case "upsertLeague":       return handleUpsertLeague(envelope.data);
     case "upsertFixture":      return handleUpsertFixture(envelope.data);
-    case "updateFixtureResult":return handleUpdateFixtureResult(envelope.data);
-    case "upsertBreak":        return handleUpsertBreak(envelope.data);
-    case "deleteBreak":        return handleDeleteBreak(envelope.data);
     case "deleteFixture":      return handleDeleteFixture(envelope.data);
     case "deleteHandicap":     return handleDeleteHandicap(envelope.data);
     case "deletePlayer":       return handleDeletePlayer(envelope.data);
@@ -1845,7 +2065,7 @@ Deno.serve(async (req: Request) => {
       const env = await parsePostEnvelope(req);
       if (!env?.action) return errorResponse("Missing required parameter: action");
       action = env.action;
-      return await dispatchPost(env);
+      return await dispatchPost(env, req);
     }
 
     const url = new URL(req.url);

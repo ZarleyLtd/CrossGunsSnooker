@@ -1,9 +1,12 @@
 // League/group radio filter for fixtures, results, top-breaks (per current season).
+// No "All" radio: none selected = all groups. Clicking the selected group clears it.
 
 var LeagueGroupFilter = {
   KNOCKOUT_GROUP_ID: 'ko',
 
   _changeBound: false,
+  /** Radio that was already checked at mousedown (candidate to clear on click). */
+  _wasCheckedInput: null,
 
   selected: function () {
     var el = document.querySelector('input[name="league"]:checked');
@@ -12,11 +15,22 @@ var LeagueGroupFilter = {
 
   highlightSelected: function () {
     var selected = document.querySelector('input[name="league"]:checked');
-    if (!selected) return;
     document.querySelectorAll('.league-label').forEach(function (label) {
       var input = label.querySelector('input[name="league"]');
-      label.classList.toggle('is-selected', !!(input && input.value === selected.value));
+      label.classList.toggle(
+        'is-selected',
+        !!(selected && input && input.value === selected.value)
+      );
     });
+  },
+
+  _radioFromEvent: function (container, e) {
+    var t = e.target;
+    if (!t) return null;
+    if (t.name === 'league' && t.type === 'radio') return t;
+    var label = t.closest ? t.closest('.league-label') : null;
+    if (!label || !container.contains(label)) return null;
+    return label.querySelector('input[name="league"]');
   },
 
   bindChange: function (onChange) {
@@ -24,8 +38,33 @@ var LeagueGroupFilter = {
     if (!container || typeof onChange !== 'function') return;
     if (this._changeBound) return;
     this._changeBound = true;
+
+    // Capture checked-state before the browser toggles the radio on click/tap.
+    container.addEventListener(
+      'pointerdown',
+      function (e) {
+        var input = LeagueGroupFilter._radioFromEvent(container, e);
+        LeagueGroupFilter._wasCheckedInput = input && input.checked ? input : null;
+      },
+      true
+    );
+
+    container.addEventListener('click', function (e) {
+      var input = LeagueGroupFilter._radioFromEvent(container, e);
+      if (!input) return;
+      // Clicking an already-selected group clears the filter (All).
+      if (LeagueGroupFilter._wasCheckedInput === input) {
+        e.preventDefault();
+        input.checked = false;
+        LeagueGroupFilter._wasCheckedInput = null;
+        LeagueGroupFilter.highlightSelected();
+        onChange();
+      }
+    });
+
     container.addEventListener('change', function (e) {
       if (!e.target || e.target.name !== 'league') return;
+      LeagueGroupFilter._wasCheckedInput = null;
       LeagueGroupFilter.highlightSelected();
       onChange();
     });
@@ -33,7 +72,7 @@ var LeagueGroupFilter = {
 
   createLabel: function (value, text) {
     var label = document.createElement('label');
-    label.className = 'league-label' + (value === 'All' ? ' league-label--all' : '');
+    label.className = 'league-label';
     var input = document.createElement('input');
     input.type = 'radio';
     input.name = 'league';
@@ -65,7 +104,6 @@ var LeagueGroupFilter = {
     });
 
     container.innerHTML = '';
-    container.appendChild(this.createLabel('All', 'All'));
 
     groups.forEach(function (g) {
       container.appendChild(
@@ -73,14 +111,12 @@ var LeagueGroupFilter = {
       );
     });
 
-    var valid = ['All'].concat(
-      groups.map(function (g) {
-        return String(g.leagueId);
-      })
-    );
-    var pick = valid.indexOf(prev) >= 0 ? prev : 'All';
+    var valid = groups.map(function (g) {
+      return String(g.leagueId);
+    });
+    var pick = prev !== 'All' && valid.indexOf(prev) >= 0 ? prev : '';
     container.querySelectorAll('input[name="league"]').forEach(function (rb) {
-      rb.checked = rb.value === pick;
+      rb.checked = pick !== '' && rb.value === pick;
     });
 
     this.highlightSelected();

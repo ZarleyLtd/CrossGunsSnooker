@@ -27,6 +27,12 @@ document.addEventListener('DOMContentLoaded', function() {
   if (document.getElementById('adminPlayersRoot') && typeof AdminPlayersPage !== 'undefined') {
     AdminPlayersPage.init();
   }
+  if (document.getElementById('adminPasscodesRoot') && typeof AdminPasscodesPage !== 'undefined') {
+    AdminPasscodesPage.init();
+  }
+  if (document.getElementById('adminPasscodeRoot') && typeof AdminPasscodePage !== 'undefined') {
+    AdminPasscodePage.init();
+  }
   if (document.getElementById('adminBulkPlayersRoot') && typeof AdminBulkPlayersPage !== 'undefined') {
     AdminBulkPlayersPage.init();
   }
