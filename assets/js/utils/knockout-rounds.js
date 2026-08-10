@@ -320,6 +320,21 @@ var KnockoutRounds = (function () {
       return fallback;
     },
 
+    /**
+     * Resolve a fixture slot to a concrete player id (follows wo: placeholders
+     * through earlier-round winners when winnerIdsByCode is provided).
+     */
+    resolvedPlayerId: function (match, slot, winnerIdsByCode) {
+      winnerIdsByCode = winnerIdsByCode || {};
+      var isA = slot !== 'b';
+      var id = String((isA ? match.playerAId : match.playerBId) || '').trim();
+      if (!id) return '';
+      if (!this.isWinnerOfPlayerId(id)) return id;
+      var code = this.roundCodeFromWinnerOfId(id);
+      if (code && winnerIdsByCode[code]) return winnerIdsByCode[code];
+      return '';
+    },
+
     buildRoundWinnersMap: function (fixtures) {
       var self = this;
       var winners = {};
@@ -341,6 +356,30 @@ var KnockoutRounds = (function () {
       });
 
       return winners;
+    },
+
+    /** Map round code -> winning player id (concrete ids only, not wo: placeholders). */
+    buildRoundWinnerIdsMap: function (fixtures) {
+      var self = this;
+      var winnerIds = {};
+      var list = (fixtures || []).slice().sort(function (a, b) {
+        var diff = self.sortKeyFor(a['Game Week']) - self.sortKeyFor(b['Game Week']);
+        if (diff !== 0) return diff;
+        return (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0);
+      });
+
+      list.forEach(function (match) {
+        var code = String(match['Game Week'] || '').trim();
+        if (!code) return;
+        var sc = parseMatchScores(match);
+        if (!sc.hasResult || sc.scoreA == null || sc.scoreB == null) return;
+        if (sc.scoreA === sc.scoreB) return;
+        var slot = sc.scoreA > sc.scoreB ? 'a' : 'b';
+        var id = self.resolvedPlayerId(match, slot, winnerIds);
+        if (id && !self.isWinnerOfPlayerId(id)) winnerIds[code] = id;
+      });
+
+      return winnerIds;
     },
 
     stageKeyFor: function (code) {

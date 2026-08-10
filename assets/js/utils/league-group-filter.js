@@ -5,8 +5,9 @@ var LeagueGroupFilter = {
   KNOCKOUT_GROUP_ID: 'ko',
 
   _changeBound: false,
-  /** Radio that was already checked at mousedown (candidate to clear on click). */
+  /** Radio that was already checked at pointerdown (candidate to clear on click). */
   _wasCheckedInput: null,
+  _suppressChange: false,
 
   selected: function () {
     var el = document.querySelector('input[name="league"]:checked');
@@ -33,6 +34,13 @@ var LeagueGroupFilter = {
     return label.querySelector('input[name="league"]');
   },
 
+  clearSelection: function () {
+    document.querySelectorAll('input[name="league"]').forEach(function (rb) {
+      rb.checked = false;
+    });
+    this.highlightSelected();
+  },
+
   bindChange: function (onChange) {
     var container = document.getElementById('filter-container');
     if (!container || typeof onChange !== 'function') return;
@@ -49,21 +57,39 @@ var LeagueGroupFilter = {
       true
     );
 
-    container.addEventListener('click', function (e) {
-      var input = LeagueGroupFilter._radioFromEvent(container, e);
-      if (!input) return;
-      // Clicking an already-selected group clears the filter (All).
-      if (LeagueGroupFilter._wasCheckedInput === input) {
-        e.preventDefault();
-        input.checked = false;
+    // Capture-phase click so preventDefault wins over label/radio default behaviour.
+    container.addEventListener(
+      'click',
+      function (e) {
+        var input = LeagueGroupFilter._radioFromEvent(container, e);
+        if (!input) return;
+
+        // Clicking an already-selected group clears the filter (All).
+        if (LeagueGroupFilter._wasCheckedInput === input) {
+          e.preventDefault();
+          e.stopPropagation();
+          LeagueGroupFilter._suppressChange = true;
+          input.checked = false;
+          LeagueGroupFilter._wasCheckedInput = null;
+          LeagueGroupFilter.highlightSelected();
+          // Ensure uncheck sticks if the label re-checks synchronously after this handler.
+          requestAnimationFrame(function () {
+            if (input.checked) input.checked = false;
+            LeagueGroupFilter._suppressChange = false;
+            LeagueGroupFilter.highlightSelected();
+            onChange();
+          });
+          return;
+        }
+
         LeagueGroupFilter._wasCheckedInput = null;
-        LeagueGroupFilter.highlightSelected();
-        onChange();
-      }
-    });
+      },
+      true
+    );
 
     container.addEventListener('change', function (e) {
       if (!e.target || e.target.name !== 'league') return;
+      if (LeagueGroupFilter._suppressChange) return;
       LeagueGroupFilter._wasCheckedInput = null;
       LeagueGroupFilter.highlightSelected();
       onChange();

@@ -21,6 +21,9 @@ var FixturesPage = {
   CLEAR_RESULT_INLINE_MSG:
     'Frames are 0–0 — saving will remove this result from the database and delete any breaks already saved for this match.',
 
+  /** Cached fixtures from last network load (filtered client-side by group radios). */
+  _allFixtures: null,
+
   normalizeBestOf: function (raw) {
     var n = parseInt(raw, 10);
     if (!Number.isFinite(n) || n < 1 || n > 9 || n % 2 === 0) return this.DEFAULT_BEST_OF;
@@ -282,9 +285,7 @@ var FixturesPage = {
 
     var self = this;
     window.addEventListener(this.adminModeEvent(), function () {
-      self.render().catch(function (e) {
-        console.error(e);
-      });
+      self.applyFilterAndRender();
     });
 
     window.addEventListener(CurrentCompetition.EVENT_NAME, function () {
@@ -295,9 +296,7 @@ var FixturesPage = {
 
     if (typeof LeagueGroupFilter !== 'undefined') {
       LeagueGroupFilter.bindChange(function () {
-        self.render().catch(function (e) {
-          console.error(e);
-        });
+        self.applyFilterAndRender();
       });
     }
     this.bindResultDialog();
@@ -360,7 +359,7 @@ var FixturesPage = {
     if (typeof LeagueGroupFilter !== 'undefined') {
       await LeagueGroupFilter.sync();
     }
-    return this.render();
+    return this.loadAndRender();
   },
 
   selectedLeague: function () {
@@ -593,7 +592,7 @@ var FixturesPage = {
     titleEl.focus({ preventScroll: true });
   },
 
-  render: async function () {
+  loadAndRender: async function () {
     var container = document.getElementById('fixtures-list');
     if (!container) return;
 
@@ -605,49 +604,73 @@ var FixturesPage = {
       var result = await ApiClient.get(
         Object.assign({ action: 'getFixtures' }, CurrentCompetition.apiParams())
       );
-      var data = result.fixtures || [];
-
-      var isKnockout =
-        typeof CurrentCompetition !== 'undefined' && CurrentCompetition.isKnockout();
-      if (typeof NavCompetition !== 'undefined') {
-        NavCompetition.syncLeagueFilters(isKnockout);
-      }
-
-      var league = isKnockout ? 'All' : this.selectedLeague();
-      var upcoming = this.unplayedFixtures(data).filter(function (r) {
-        if (!isKnockout) {
-          var stage = String(r['Stage'] || '').toLowerCase();
-          if (stage === 'knockout') return false;
-        }
-        if (league === 'All') return true;
-        return String(r['League']) === league;
-      });
-
-      if (upcoming.length === 0) {
-        container.innerHTML = '<p><em>No upcoming fixtures found.</em></p>';
-        return;
-      }
-
-      var winnersByCode = {};
-      var sectionLabels = null;
-      var grouped;
-      if (isKnockout && typeof KnockoutRounds !== 'undefined') {
-        winnersByCode = KnockoutRounds.buildRoundWinnersMap(data);
-        var koGroup = KnockoutRounds.groupForList(upcoming);
-        grouped = { grouped: koGroup.grouped, orderedWeeks: koGroup.orderedKeys };
-        sectionLabels = koGroup.labels;
-      } else {
-        grouped = this.groupByGameWeek(upcoming);
-      }
-      this.renderGroups(container, grouped.grouped, grouped.orderedWeeks, {
-        isKnockout: isKnockout,
-        winnersByCode: winnersByCode,
-        sectionLabels: sectionLabels,
-      });
+      this._allFixtures = result.fixtures || [];
+      this.applyFilterAndRender();
     } catch (error) {
       console.error('Failed to load fixtures:', error);
+      this._allFixtures = null;
       container.innerHTML = '<p><em>Error loading fixtures.</em></p>';
     }
+  },
+
+  /** Re-render from cached fixtures using the current group radio (no network I/O). */
+  applyFilterAndRender: function () {
+    var container = document.getElementById('fixtures-list');
+    if (!container) return;
+
+    var data = this._allFixtures;
+    if (!data) {
+      this.loadAndRender().catch(function (e) {
+        console.error(e);
+      });
+      return;
+    }
+
+    var isKnockout =
+      typeof CurrentCompetition !== 'undefined' && CurrentCompetition.isKnockout();
+    if (typeof NavCompetition !== 'undefined') {
+      NavCompetition.syncLeagueFilters(isKnockout);
+    }
+
+    var league = isKnockout ? 'All' : this.selectedLeague();
+    var upcoming = this.unplayedFixtures(data).filter(function (r) {
+      if (!isKnockout) {
+        var stage = String(r['Stage'] || '').toLowerCase();
+        if (stage === 'knockout') return false;
+      }
+      if (league === 'All') return true;
+      return String(r['League']) === league;
+    });
+
+    if (upcoming.length === 0) {
+      container.innerHTML = '<p><em>No upcoming fixtures found.</em></p>';
+      return;
+    }
+
+    var winnersByCode = {};
+    var winnerIdsByCode = {};
+    var sectionLabels = null;
+    var grouped;
+    if (isKnockout && typeof KnockoutRounds !== 'undefined') {
+      winnersByCode = KnockoutRounds.buildRoundWinnersMap(data);
+      winnerIdsByCode = KnockoutRounds.buildRoundWinnerIdsMap(data);
+      var koGroup = KnockoutRounds.groupForList(upcoming);
+      grouped = { grouped: koGroup.grouped, orderedWeeks: koGroup.orderedKeys };
+      sectionLabels = koGroup.labels;
+    } else {
+      grouped = this.groupByGameWeek(upcoming);
+    }
+    this.renderGroups(container, grouped.grouped, grouped.orderedWeeks, {
+      isKnockout: isKnockout,
+      winnersByCode: winnersByCode,
+      winnerIdsByCode: winnerIdsByCode,
+      sectionLabels: sectionLabels,
+    });
+  },
+
+  /** @deprecated Use loadAndRender / applyFilterAndRender */
+  render: async function () {
+    return this.loadAndRender();
   },
 
   groupByGameWeek: function (fixtures) {
@@ -700,6 +723,7 @@ var FixturesPage = {
     options = options || {};
     var isKnockout = !!options.isKnockout;
     var winnersByCode = options.winnersByCode || {};
+    var winnerIdsByCode = options.winnerIdsByCode || {};
     container.innerHTML = '';
 
     orderedWeeks.forEach(function (week) {
@@ -733,9 +757,21 @@ var FixturesPage = {
         div.style.fontSize = '1.05em';
 
         var fid = String(match.fixtureId || '').trim();
+        var slotIdA = String(match.playerAId || '').trim();
+        var slotIdB = String(match.playerBId || '').trim();
+        var pidA = slotIdA;
+        var pidB = slotIdB;
+        if (
+          isKnockout &&
+          typeof KnockoutRounds !== 'undefined' &&
+          KnockoutRounds.resolvedPlayerId
+        ) {
+          pidA = KnockoutRounds.resolvedPlayerId(match, 'a', winnerIdsByCode) || slotIdA;
+          pidB = KnockoutRounds.resolvedPlayerId(match, 'b', winnerIdsByCode) || slotIdB;
+        }
         div.setAttribute('data-fixture-id', fid);
-        div.setAttribute('data-player-a-id', String(match.playerAId || '').trim());
-        div.setAttribute('data-player-b-id', String(match.playerBId || '').trim());
+        div.setAttribute('data-player-a-id', pidA);
+        div.setAttribute('data-player-b-id', pidB);
         var nameA = self.knockoutPlayerLabel(match, 'a', winnersByCode);
         var nameB = self.knockoutPlayerLabel(match, 'b', winnersByCode);
         if (!isKnockout) {
@@ -752,18 +788,8 @@ var FixturesPage = {
         if (enteredBy) div.setAttribute('data-result-entered-by', enteredBy);
 
         var matchDate = match['Match Date'] || '';
-        var playerA = self.makePlayerNameEl(
-          nameA,
-          match.playerAId,
-          matchDate,
-          'right'
-        );
-        var playerB = self.makePlayerNameEl(
-          nameB,
-          match.playerBId,
-          matchDate,
-          'left'
-        );
+        var playerA = self.makePlayerNameEl(nameA, pidA, matchDate, 'right');
+        var playerB = self.makePlayerNameEl(nameB, pidB, matchDate, 'left');
 
         var center;
         if (fid && resultReady) {

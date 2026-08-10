@@ -305,13 +305,14 @@ var KnockoutBracket = (function () {
     return 'M0,' + yL + ' H12 V' + yR + ' H32';
   }
 
-  function renderMatchCard(match, winnersByCode) {
+  function renderMatchCard(match, winnersByCode, winnerIdsByCode) {
     var card = document.createElement('article');
     card.className = 'ko-bracket-match';
     var code = String(match['Game Week'] || '').trim();
     if (code) card.setAttribute('data-round-code', code);
 
     var sc = parseScores(match);
+    var matchDate = match['Match Date'] || '';
     [
       { slot: 'a', score: sc.scoreA, win: sc.hasResult && sc.scoreA > sc.scoreB },
       { slot: 'b', score: sc.scoreB, win: sc.hasResult && sc.scoreB > sc.scoreA },
@@ -322,6 +323,23 @@ var KnockoutBracket = (function () {
           : row.slot === 'a'
             ? match['Player A'] || 'TBD'
             : match['Player B'] || 'TBD';
+      var playerId = '';
+      if (typeof KnockoutRounds !== 'undefined' && KnockoutRounds.resolvedPlayerId) {
+        playerId = KnockoutRounds.resolvedPlayerId(match, row.slot, winnerIdsByCode) || '';
+      } else {
+        playerId = String(
+          (row.slot === 'a' ? match.playerAId : match.playerBId) || ''
+        ).trim();
+      }
+      if (
+        playerId &&
+        typeof KnockoutRounds !== 'undefined' &&
+        KnockoutRounds.isWinnerOfPlayerId &&
+        KnockoutRounds.isWinnerOfPlayerId(playerId)
+      ) {
+        playerId = '';
+      }
+
       var line = document.createElement('div');
       line.className = 'ko-bracket-match__row';
       if (row.win) line.classList.add('ko-bracket-match__row--winner');
@@ -329,6 +347,29 @@ var KnockoutBracket = (function () {
       var nameEl = document.createElement('span');
       nameEl.className = 'ko-bracket-match__name';
       nameEl.textContent = displayName;
+      nameEl.setAttribute('data-match-date', matchDate);
+
+      if (playerId) {
+        nameEl.setAttribute('data-player-id', playerId);
+        nameEl.classList.add('ko-bracket-match__name--interactive');
+        nameEl.setAttribute('role', 'button');
+        nameEl.setAttribute('tabindex', '0');
+        nameEl.setAttribute('aria-label', 'Show handicap for ' + displayName);
+        function onActivate(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (
+            typeof FixturesPage !== 'undefined' &&
+            FixturesPage.showPlayerHandicapBrief
+          ) {
+            FixturesPage.showPlayerHandicapBrief(nameEl, playerId, matchDate);
+          }
+        }
+        nameEl.addEventListener('click', onActivate);
+        nameEl.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') onActivate(e);
+        });
+      }
 
       var score = document.createElement('span');
       score.className = 'ko-bracket-match__score';
@@ -344,7 +385,7 @@ var KnockoutBracket = (function () {
     return card;
   }
 
-  function renderStageColumn(stage, layoutSlots, winnersByCode) {
+  function renderStageColumn(stage, layoutSlots, winnersByCode, winnerIdsByCode) {
     var col = document.createElement('div');
     col.className = 'ko-bracket-stage';
     col.setAttribute('data-stage', stage.stageKey);
@@ -357,7 +398,7 @@ var KnockoutBracket = (function () {
     list.className = 'ko-bracket-stage__list';
 
     stage.matches.forEach(function (match) {
-      list.appendChild(renderMatchCard(match, winnersByCode));
+      list.appendChild(renderMatchCard(match, winnersByCode, winnerIdsByCode));
     });
 
     var arena = document.createElement('div');
@@ -599,7 +640,7 @@ var KnockoutBracket = (function () {
     scrollToStage(0, false);
   }
 
-  function renderTrack(track, root, winnersByCode, trackOptions) {
+  function renderTrack(track, root, winnersByCode, winnerIdsByCode, trackOptions) {
     trackOptions = trackOptions || {};
     var block = document.createElement('section');
     block.className = 'ko-bracket-track-block';
@@ -658,7 +699,7 @@ var KnockoutBracket = (function () {
       if (idx > 0) {
         scrollTrack.appendChild(renderConnector(stages[idx - 1], stage, layoutSlots));
       }
-      scrollTrack.appendChild(renderStageColumn(stage, layoutSlots, winnersByCode));
+      scrollTrack.appendChild(renderStageColumn(stage, layoutSlots, winnersByCode, winnerIdsByCode));
     });
 
     viewport.appendChild(scrollTrack);
@@ -745,11 +786,15 @@ var KnockoutBracket = (function () {
         typeof KnockoutRounds !== 'undefined' && KnockoutRounds.buildRoundWinnersMap
           ? KnockoutRounds.buildRoundWinnersMap(fixtures)
           : {};
+      var winnerIdsByCode =
+        typeof KnockoutRounds !== 'undefined' && KnockoutRounds.buildRoundWinnerIdsMap
+          ? KnockoutRounds.buildRoundWinnerIdsMap(fixtures)
+          : {};
 
       var stageNav = options.stageNav !== false;
 
       buildTracks(stages).forEach(function (track) {
-        renderTrack(track, root, winnersByCode, {
+        renderTrack(track, root, winnersByCode, winnerIdsByCode, {
           stageNav: stageNav,
           trackLabel: track.label || '',
         });
