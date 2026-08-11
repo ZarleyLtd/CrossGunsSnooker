@@ -29,9 +29,12 @@
 //   upsertPlayer, upsertSeasonPlayer, upsertHandicap,
 //   upsertSeason, upsertLeague, upsertFixture, updateFixtureResult,
 //   upsertBreak, deleteBreak, deleteFixture, deleteHandicap, deletePlayer,
-//   deleteSeason, deleteLeague, upsertSeasonGroup
-// Score entry (updateFixtureResult, upsertBreak, deleteBreak) accepts admin
-// or scorer tokens; result_entered_by is set from the token role/name.
+//   deleteSeason, deleteLeague, upsertSeasonGroup,
+//   getResultSlip, uploadResultSlip, commitResultSlip,
+//   discardResultSlipSession, removeResultSlip
+// Score entry (updateFixtureResult, upsertBreak, deleteBreak, result-slip
+// actions) accepts admin or scorer tokens; result_entered_by is set from the
+// token role/name.
 //
 // Standings ordering = the full CrossGuns tiebreak chain:
 //   1. points desc
@@ -42,6 +45,13 @@
 //   6. alphabetical (stable)
 
 import postgres from "https://deno.land/x/postgresjs@v3.4.4/mod.js";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { decode as base64Decode } from "https://deno.land/std@0.208.0/encoding/base64.ts";
+
+/** Private Storage bucket for result-slip photos (signed URLs only). */
+const RESULT_SLIP_BUCKET = "crossguns-result-slips";
+/** Seconds a signed slip URL stays valid (1 hour). */
+const RESULT_SLIP_SIGNED_URL_TTL = 3600;
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -79,6 +89,92 @@ function db() {
     prepare: false,
   });
   return _sql;
+}
+
+/** Service-role client for Storage only (schema stays on postgres.js). */
+let _sb: ReturnType<typeof createClient> | null = null;
+function storageClient() {
+  if (_sb) return _sb;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  }
+  _sb = createClient(supabaseUrl, serviceRoleKey);
+  return _sb;
+}
+
+function resultSlipPendingPath(fixtureId: string): string {
+  return `fixtures/${fixtureId}/pending.jpg`;
+}
+
+function resultSlipCommittedPath(fixtureId: string): string {
+  return `fixtures/${fixtureId}/slip.jpg`;
+}
+
+function decodeImagePayload(
+  base64: unknown,
+  mimeType: unknown,
+): { bytes: Uint8Array; mime: string } | null {
+  const raw = String(base64 || "").replace(/^data:[^,]+,/, "").replace(/\s/g, "");
+  if (!raw) return null;
+  return { bytes: base64Decode(raw), mime: String(mimeType || "image/jpeg") };
+}
+
+async function getSignedSlipUrl(path: string | null | undefined): Promise<string | null> {
+  if (!path) return null;
+  const sb = storageClient();
+  const { data, error } = await sb.storage
+    .from(RESULT_SLIP_BUCKET)
+    .createSignedUrl(path, RESULT_SLIP_SIGNED_URL_TTL);
+  if (error) {
+    console.warn("Failed to sign result-slip URL:", error.message);
+    return null;
+  }
+  return data?.signedUrl || null;
+}
+
+async function uploadSlipBytes(
+  path: string,
+  bytes: Uint8Array,
+  mime: string,
+): Promise<void> {
+  const sb = storageClient();
+  const { error } = await sb.storage.from(RESULT_SLIP_BUCKET).upload(path, bytes, {
+    contentType: mime,
+    upsert: true,
+  });
+  if (error) throw new Error(error.message);
+}
+
+async function deleteSlipPaths(paths: string[]): Promise<void> {
+  const clean = paths.map((p) => String(p || "").trim()).filter(Boolean);
+  if (!clean.length) return;
+  const sb = storageClient();
+  const { error } = await sb.storage.from(RESULT_SLIP_BUCKET).remove(clean);
+  if (error) console.warn("Failed to delete result-slip object(s):", error.message);
+}
+
+async function clearFixtureResultSlip(fixtureId: string): Promise<void> {
+  const pending = resultSlipPendingPath(fixtureId);
+  const committed = resultSlipCommittedPath(fixtureId);
+  const sql = db();
+  const rows = await sql<{ result_slip_path: string | null }[]>`
+    select result_slip_path
+      from crossguns.fixtures
+     where fixture_id = ${fixtureId}::uuid
+  `;
+  const dbPath = rows[0]?.result_slip_path || null;
+  const toRemove = [pending, committed];
+  if (dbPath && dbPath !== pending && dbPath !== committed) toRemove.push(dbPath);
+  await deleteSlipPaths(toRemove);
+  await sql`
+    update crossguns.fixtures
+       set result_slip_path = null,
+           result_slip_mime = null,
+           updated_at = now()
+     where fixture_id = ${fixtureId}::uuid
+  `;
 }
 
 // ---------- Types -----------------------------------------------------------
@@ -1130,6 +1226,11 @@ const SCORE_POST_ACTIONS = new Set([
   "updateFixtureResult",
   "upsertBreak",
   "deleteBreak",
+  "getResultSlip",
+  "uploadResultSlip",
+  "commitResultSlip",
+  "discardResultSlipSession",
+  "removeResultSlip",
 ]);
 
 const ADMIN_POST_ACTIONS = new Set([
@@ -1147,6 +1248,11 @@ const ADMIN_POST_ACTIONS = new Set([
   "updateFixtureResult",
   "upsertBreak",
   "deleteBreak",
+  "getResultSlip",
+  "uploadResultSlip",
+  "commitResultSlip",
+  "discardResultSlipSession",
+  "removeResultSlip",
   "deleteFixture",
   "deleteHandicap",
   "deletePlayer",
@@ -1834,6 +1940,7 @@ async function handleUpdateFixtureResult(
     else matchDateVal = String(md).trim();
   }
   const by = String(enteredBy || "").trim() || "Admin";
+  const clearing = scoreA === null && scoreB === null;
 
   const sql = db();
   if (hasMatchDate) {
@@ -1856,6 +1963,106 @@ async function handleUpdateFixtureResult(
       where fixture_id = ${fixtureId}::uuid
     `;
   }
+  if (clearing) {
+    await clearFixtureResultSlip(fixtureId);
+  }
+  return jsonResponse({ success: true });
+}
+
+async function handleGetResultSlip(data: Record<string, unknown>): Promise<Response> {
+  const fixtureId = String(data.fixtureId ?? "").trim();
+  if (!fixtureId) return errorResponse("fixtureId required");
+  const sql = db();
+  const rows = await sql<{ result_slip_path: string | null; result_slip_mime: string | null }[]>`
+    select result_slip_path, result_slip_mime
+      from crossguns.fixtures
+     where fixture_id = ${fixtureId}::uuid
+  `;
+  if (!rows.length) return errorResponse("Fixture not found", 404);
+  const path = rows[0]!.result_slip_path;
+  if (!path) {
+    return jsonResponse({ success: true, hasImage: false, imageUrl: null, mimeType: null });
+  }
+  const imageUrl = await getSignedSlipUrl(path);
+  return jsonResponse({
+    success: true,
+    hasImage: true,
+    imageUrl,
+    mimeType: rows[0]!.result_slip_mime || "image/jpeg",
+  });
+}
+
+async function handleUploadResultSlip(data: Record<string, unknown>): Promise<Response> {
+  const fixtureId = String(data.fixtureId ?? "").trim();
+  if (!fixtureId) return errorResponse("fixtureId required");
+  const payload = decodeImagePayload(data.base64 ?? data.imageBase64, data.mimeType ?? data.imageMimeType);
+  if (!payload) return errorResponse("Image payload required");
+  const sql = db();
+  const exists = await sql<{ ok: boolean }[]>`
+    select exists(
+      select 1 from crossguns.fixtures where fixture_id = ${fixtureId}::uuid
+    ) as ok
+  `;
+  if (!Boolean(exists[0]?.ok)) return errorResponse("Fixture not found", 404);
+
+  const path = resultSlipPendingPath(fixtureId);
+  await uploadSlipBytes(path, payload.bytes, payload.mime);
+  const imageUrl = await getSignedSlipUrl(path);
+  return jsonResponse({
+    success: true,
+    pending: true,
+    path,
+    mimeType: payload.mime,
+    imageUrl,
+  });
+}
+
+async function handleCommitResultSlip(data: Record<string, unknown>): Promise<Response> {
+  const fixtureId = String(data.fixtureId ?? "").trim();
+  if (!fixtureId) return errorResponse("fixtureId required");
+  const pending = resultSlipPendingPath(fixtureId);
+  const committed = resultSlipCommittedPath(fixtureId);
+  const sb = storageClient();
+  const sql = db();
+
+  const { data: blob, error: dlErr } = await sb.storage.from(RESULT_SLIP_BUCKET).download(pending);
+  if (dlErr || !blob) {
+    // No pending upload this session — leave committed slip as-is.
+    return jsonResponse({ success: true, committed: false });
+  }
+
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const mime = blob.type || "image/jpeg";
+  await uploadSlipBytes(committed, bytes, mime);
+  await deleteSlipPaths([pending]);
+  await sql`
+    update crossguns.fixtures
+       set result_slip_path = ${committed},
+           result_slip_mime = ${mime},
+           updated_at = now()
+     where fixture_id = ${fixtureId}::uuid
+  `;
+  const imageUrl = await getSignedSlipUrl(committed);
+  return jsonResponse({
+    success: true,
+    committed: true,
+    path: committed,
+    mimeType: mime,
+    imageUrl,
+  });
+}
+
+async function handleDiscardResultSlipSession(data: Record<string, unknown>): Promise<Response> {
+  const fixtureId = String(data.fixtureId ?? "").trim();
+  if (!fixtureId) return errorResponse("fixtureId required");
+  await deleteSlipPaths([resultSlipPendingPath(fixtureId)]);
+  return jsonResponse({ success: true });
+}
+
+async function handleRemoveResultSlip(data: Record<string, unknown>): Promise<Response> {
+  const fixtureId = String(data.fixtureId ?? "").trim();
+  if (!fixtureId) return errorResponse("fixtureId required");
+  await clearFixtureResultSlip(fixtureId);
   return jsonResponse({ success: true });
 }
 
@@ -1898,6 +2105,7 @@ async function handleDeleteBreak(data: Record<string, unknown>): Promise<Respons
 async function handleDeleteFixture(data: Record<string, unknown>): Promise<Response> {
   const fixtureId = String(data.fixtureId ?? "").trim();
   if (!fixtureId) return errorResponse("fixtureId required");
+  await clearFixtureResultSlip(fixtureId);
   const sql = db();
   await sql`delete from crossguns.fixtures where fixture_id = ${fixtureId}::uuid`;
   return jsonResponse({ success: true });
@@ -2025,6 +2233,16 @@ async function dispatchPost(envelope: PostEnvelope, req: Request): Promise<Respo
         return handleUpsertBreak(envelope.data);
       case "deleteBreak":
         return handleDeleteBreak(envelope.data);
+      case "getResultSlip":
+        return handleGetResultSlip(envelope.data);
+      case "uploadResultSlip":
+        return handleUploadResultSlip(envelope.data);
+      case "commitResultSlip":
+        return handleCommitResultSlip(envelope.data);
+      case "discardResultSlipSession":
+        return handleDiscardResultSlipSession(envelope.data);
+      case "removeResultSlip":
+        return handleRemoveResultSlip(envelope.data);
       default:
         return errorResponse(`Unknown action: ${envelope.action}`, 400);
     }

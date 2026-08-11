@@ -82,6 +82,11 @@ const ApiClient = {
         updateFixtureResult: true,
         upsertBreak: true,
         deleteBreak: true,
+        getResultSlip: true,
+        uploadResultSlip: true,
+        commitResultSlip: true,
+        discardResultSlipSession: true,
+        removeResultSlip: true,
       };
       let token = opts.adminToken;
       if (token === undefined && typeof sessionStorage !== 'undefined' && !noTokenActions[action]) {

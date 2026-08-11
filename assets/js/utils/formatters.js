@@ -83,5 +83,81 @@ const Formatters = {
     if (n === 0) return '0';
     if (n > 0) return '+' + n;
     return String(n);
+  },
+
+  _monthShort: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+
+  /**
+   * Format an ISO date (YYYY-MM-DD) for display, e.g. "31 Jan 2026".
+   * @param {string} iso
+   * @returns {string}
+   */
+  formatMatchDateDisplay: function (iso) {
+    var m = String(iso == null ? '' : iso)
+      .trim()
+      .match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return '';
+    var monthIdx = parseInt(m[2], 10) - 1;
+    if (monthIdx < 0 || monthIdx > 11) return '';
+    return parseInt(m[3], 10) + ' ' + this._monthShort[monthIdx] + ' ' + m[1];
+  },
+
+  /**
+   * Parse a match-date string to YYYY-MM-DD.
+   * Accepts "31 Jan 2026", "31/01/2026", or "2026-01-31".
+   * @param {string} value
+   * @returns {string} ISO date or ''
+   */
+  parseMatchDateToISO: function (value) {
+    var raw = String(value == null ? '' : value).trim();
+    if (!raw) return '';
+
+    var iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) {
+      return this._validISODate(iso[1], iso[2], iso[3]);
+    }
+
+    var slash = raw.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+    if (slash) {
+      return this._validISODate(slash[3], slash[2], slash[1]);
+    }
+
+    var named = raw.match(/^(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})$/);
+    if (named) {
+      var monthNum = this._monthNameToNumber(named[2]);
+      if (!monthNum) return '';
+      return this._validISODate(named[3], monthNum, named[1]);
+    }
+
+    return '';
+  },
+
+  _monthNameToNumber: function (name) {
+    var key = String(name || '')
+      .trim()
+      .toLowerCase()
+      .slice(0, 3);
+    var i;
+    for (i = 0; i < this._monthShort.length; i++) {
+      if (this._monthShort[i].toLowerCase() === key) {
+        return String(i + 1).padStart(2, '0');
+      }
+    }
+    return '';
+  },
+
+  _validISODate: function (year, month, day) {
+    var y = String(year);
+    var m = String(month).padStart(2, '0');
+    var d = String(day).padStart(2, '0');
+    var nY = parseInt(y, 10);
+    var nM = parseInt(m, 10);
+    var nD = parseInt(d, 10);
+    if (!nY || nM < 1 || nM > 12 || nD < 1 || nD > 31) return '';
+    var dt = new Date(nY, nM - 1, nD);
+    if (dt.getFullYear() !== nY || dt.getMonth() !== nM - 1 || dt.getDate() !== nD) {
+      return '';
+    }
+    return y + '-' + m + '-' + d;
   }
 };

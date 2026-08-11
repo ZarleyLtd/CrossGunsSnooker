@@ -13,6 +13,12 @@ var FixturesPage = {
   /** True when dialog was opened for a fixture that already had a recorded result. */
   _dialogOpenedWithResult: false,
   _resultDialogBindingsDone: false,
+  /** Result-slip session state for the open Enter Result dialog. */
+  _slipPendingUploaded: false,
+  _slipHasCommitted: false,
+  _slipSaveSucceeded: false,
+  _slipSuppressDiscardOnClose: false,
+  _resultSlipUploadInited: false,
   /** Map playerId -> [{ date: 'YYYY-MM-DD', handicap: number }] newest first. */
   _handicapHistoryByPlayer: null,
   _handicapsLoadPromise: null,
@@ -208,12 +214,206 @@ var FixturesPage = {
       '';
     var pidA = (document.getElementById('fixture-result-player-a-id') || {}).value || '';
     var pidB = (document.getElementById('fixture-result-player-b-id') || {}).value || '';
-    var dateEl = document.getElementById('fixture-result-date');
-    var matchDate = dateEl ? dateEl.value : '';
+    var matchDate = this.resultDialogMatchDateISO();
     var labelA = document.getElementById('fixture-result-label-a');
     var labelB = document.getElementById('fixture-result-label-b');
     if (labelA) labelA.textContent = this.playerLabelWithHandicap(nameA, pidA, matchDate);
     if (labelB) labelB.textContent = this.playerLabelWithHandicap(nameB, pidB, matchDate);
+  },
+
+  /** Match date from the Enter result dialog as YYYY-MM-DD (empty if invalid/blank). */
+  resultDialogMatchDateISO: function () {
+    var dateEl = document.getElementById('fixture-result-date');
+    var pickerEl = document.getElementById('fixture-result-date-picker');
+    if (dateEl && typeof Formatters !== 'undefined' && Formatters.parseMatchDateToISO) {
+      var fromText = Formatters.parseMatchDateToISO(dateEl.value);
+      if (fromText) return fromText;
+    }
+    if (pickerEl && pickerEl.value) return String(pickerEl.value).trim();
+    if (dateEl) return String(dateEl.value || '').trim();
+    return '';
+  },
+
+  /** Set the dialog date control from an ISO date (or today). */
+  setResultDialogMatchDate: function (isoOrEmpty) {
+    var dateEl = document.getElementById('fixture-result-date');
+    var pickerEl = document.getElementById('fixture-result-date-picker');
+    var iso =
+      isoOrEmpty && String(isoOrEmpty).trim()
+        ? String(isoOrEmpty).trim()
+        : this.localISODate();
+    if (pickerEl) pickerEl.value = iso;
+    if (!dateEl) return;
+    if (typeof Formatters !== 'undefined' && Formatters.formatMatchDateDisplay) {
+      var display = Formatters.formatMatchDateDisplay(iso);
+      dateEl.value = display || iso;
+      return;
+    }
+    dateEl.value = iso;
+  },
+
+  /** Normalize typed date to "31 Jan 2026" when valid; sync picker; refresh handicap labels. */
+  normalizeResultDialogMatchDate: function () {
+    var dateEl = document.getElementById('fixture-result-date');
+    var pickerEl = document.getElementById('fixture-result-date-picker');
+    if (!dateEl) return;
+    var iso = this.resultDialogMatchDateISO();
+    if (iso) {
+      if (typeof Formatters !== 'undefined' && Formatters.formatMatchDateDisplay) {
+        dateEl.value = Formatters.formatMatchDateDisplay(iso);
+      }
+      if (pickerEl) pickerEl.value = iso;
+    }
+    this.refreshResultDialogPlayerLabels();
+  },
+
+  /** Apply a date chosen via the native picker into the display field. */
+  applyResultDialogPickerDate: function () {
+    var pickerEl = document.getElementById('fixture-result-date-picker');
+    if (!pickerEl || !pickerEl.value) return;
+    this.setResultDialogMatchDate(pickerEl.value);
+    this.refreshResultDialogPlayerLabels();
+  },
+
+  initResultSlipUpload: function () {
+    if (this._resultSlipUploadInited) return;
+    var btn = document.getElementById('fixture-result-slip-btn');
+    if (!btn || typeof ResultSlipUpload === 'undefined') return;
+    var self = this;
+    ResultSlipUpload.init(btn, {
+      onPhotoSelected: function (base64, mimeType, previewUrl) {
+        self.handleResultSlipPhotoSelected(base64, mimeType, previewUrl);
+      },
+      onRemoveRequested: function () {
+        self.handleResultSlipRemoveRequested();
+      },
+    });
+    this._resultSlipUploadInited = true;
+  },
+
+  resetResultSlipSession: function () {
+    this._slipPendingUploaded = false;
+    this._slipHasCommitted = false;
+    this._slipSaveSucceeded = false;
+    if (typeof ResultSlipUpload !== 'undefined') {
+      ResultSlipUpload.clearImage();
+      ResultSlipUpload.setBusy(false);
+    }
+  },
+
+  loadResultSlipForDialog: function (fixtureId) {
+    var self = this;
+    if (!fixtureId || typeof ApiClient === 'undefined') return Promise.resolve();
+    return ApiClient.post('getResultSlip', { fixtureId: fixtureId })
+      .then(function (res) {
+        if (res && res.hasImage && res.imageUrl) {
+          self._slipHasCommitted = true;
+          if (typeof ResultSlipUpload !== 'undefined') {
+            ResultSlipUpload.setImage(res.imageUrl);
+          }
+        }
+      })
+      .catch(function (err) {
+        console.warn('Could not load result slip:', err);
+      });
+  },
+
+  handleResultSlipPhotoSelected: function (base64, mimeType, previewUrl) {
+    var fixtureId = (document.getElementById('fixture-result-fixture-id') || {}).value || '';
+    var btn = document.getElementById('fixture-result-slip-btn');
+    if (!fixtureId) {
+      if (typeof BriefMessage === 'function') {
+        BriefMessage('Missing fixture', btn);
+      }
+      return;
+    }
+    var self = this;
+    if (typeof ResultSlipUpload !== 'undefined') ResultSlipUpload.setBusy(true);
+    ApiClient.post('uploadResultSlip', {
+      fixtureId: fixtureId,
+      base64: base64,
+      mimeType: mimeType || 'image/jpeg',
+    })
+      .then(function (res) {
+        self._slipPendingUploaded = true;
+        var url = (res && res.imageUrl) || previewUrl;
+        if (typeof ResultSlipUpload !== 'undefined') {
+          ResultSlipUpload.setImage(url);
+          ResultSlipUpload.setBusy(false);
+        }
+        if (typeof BriefMessage === 'function') {
+          BriefMessage('Photo uploaded', btn);
+        }
+      })
+      .catch(function (err) {
+        if (typeof ResultSlipUpload !== 'undefined') {
+          if (self._slipHasCommitted) {
+            self.loadResultSlipForDialog(fixtureId);
+          } else {
+            ResultSlipUpload.clearImage();
+          }
+          ResultSlipUpload.setBusy(false);
+        }
+        if (typeof BriefMessage === 'function') {
+          BriefMessage(err.message || 'Upload failed', btn);
+        }
+      });
+  },
+
+  handleResultSlipRemoveRequested: function () {
+    var fixtureId = (document.getElementById('fixture-result-fixture-id') || {}).value || '';
+    var btn = document.getElementById('fixture-result-slip-btn');
+    var self = this;
+    if (!fixtureId) return;
+
+    if (typeof ResultSlipUpload !== 'undefined') ResultSlipUpload.setBusy(true);
+
+    var action = this._slipHasCommitted ? 'removeResultSlip' : 'discardResultSlipSession';
+    ApiClient.post(action, { fixtureId: fixtureId })
+      .then(function () {
+        self._slipPendingUploaded = false;
+        self._slipHasCommitted = false;
+        if (typeof ResultSlipUpload !== 'undefined') {
+          ResultSlipUpload.clearImage();
+          ResultSlipUpload.setBusy(false);
+        }
+        if (typeof BriefMessage === 'function') {
+          BriefMessage('Photo removed', btn);
+        }
+      })
+      .catch(function (err) {
+        if (typeof ResultSlipUpload !== 'undefined') ResultSlipUpload.setBusy(false);
+        if (typeof BriefMessage === 'function') {
+          BriefMessage(err.message || 'Could not remove photo', btn);
+        }
+      });
+  },
+
+  discardResultSlipSessionIfNeeded: function () {
+    if (!this._slipPendingUploaded) return Promise.resolve();
+    var fixtureId = (document.getElementById('fixture-result-fixture-id') || {}).value || '';
+    if (!fixtureId || typeof ApiClient === 'undefined') {
+      this._slipPendingUploaded = false;
+      return Promise.resolve();
+    }
+    var self = this;
+    return ApiClient.post('discardResultSlipSession', { fixtureId: fixtureId })
+      .then(function () {
+        self._slipPendingUploaded = false;
+      })
+      .catch(function (err) {
+        console.warn('Could not discard pending result slip:', err);
+        self._slipPendingUploaded = false;
+      });
+  },
+
+  commitResultSlipIfNeeded: function (fixtureId) {
+    if (!this._slipPendingUploaded || !fixtureId) return Promise.resolve();
+    var self = this;
+    return ApiClient.post('commitResultSlip', { fixtureId: fixtureId }).then(function () {
+      self._slipPendingUploaded = false;
+      self._slipHasCommitted = true;
+    });
   },
 
   setResultDialogPlayerLabels: function (nameA, nameB) {
@@ -393,9 +593,24 @@ var FixturesPage = {
     var cancelBtn = document.getElementById('fixture-result-cancel');
     if (cancelBtn) {
       cancelBtn.addEventListener('click', function () {
-        dlg.close();
+        self.discardResultSlipSessionIfNeeded().finally(function () {
+          dlg.close();
+        });
       });
     }
+
+    if (!dlg.getAttribute('data-slip-close-bound')) {
+      dlg.setAttribute('data-slip-close-bound', '1');
+      dlg.addEventListener('close', function () {
+        if (self._slipSuppressDiscardOnClose) return;
+        if (!self._slipSaveSucceeded) {
+          self.discardResultSlipSessionIfNeeded();
+        }
+        self._slipSaveSucceeded = false;
+      });
+    }
+
+    this.initResultSlipUpload();
 
     var form = document.getElementById('fixture-result-form');
     if (!form) return;
@@ -414,7 +629,20 @@ var FixturesPage = {
     if (dateEl && !dateEl.getAttribute('data-hc-label-bound')) {
       dateEl.setAttribute('data-hc-label-bound', '1');
       dateEl.addEventListener('change', function () {
-        self.refreshResultDialogPlayerLabels();
+        self.normalizeResultDialogMatchDate();
+      });
+      dateEl.addEventListener('blur', function () {
+        self.normalizeResultDialogMatchDate();
+      });
+    }
+    var pickerEl = document.getElementById('fixture-result-date-picker');
+    if (pickerEl && !pickerEl.getAttribute('data-hc-label-bound')) {
+      pickerEl.setAttribute('data-hc-label-bound', '1');
+      pickerEl.addEventListener('change', function () {
+        self.applyResultDialogPickerDate();
+      });
+      pickerEl.addEventListener('input', function () {
+        self.applyResultDialogPickerDate();
       });
     }
     this._resultDialogBindingsDone = true;
@@ -424,6 +652,7 @@ var FixturesPage = {
   confirmClearingResult: function () {
     var dlg = document.getElementById('fixture-result-dialog');
     var dialogWasOpen = !!(dlg && dlg.open);
+    this._slipSuppressDiscardOnClose = true;
     if (dialogWasOpen && typeof dlg.close === 'function') {
       dlg.close();
     }
@@ -435,6 +664,7 @@ var FixturesPage = {
         self.focusResultDialogRoot();
       }, 0);
     }
+    this._slipSuppressDiscardOnClose = false;
     return confirmed;
   },
 
@@ -914,8 +1144,7 @@ var FixturesPage = {
 
     this.updateDialogEnteredBy(rowEl.getAttribute('data-result-entered-by'));
 
-    var dateEl = document.getElementById('fixture-result-date');
-    dateEl.value = prevDate && String(prevDate).trim() ? prevDate : this.localISODate();
+    this.setResultDialogMatchDate(prevDate && String(prevDate).trim() ? prevDate : '');
     this.setResultDialogPlayerLabels(nameA, nameB);
 
     this.ensureFrameRacksBuilt();
@@ -953,6 +1182,8 @@ var FixturesPage = {
     }
 
     this.clearBreakContainers();
+    this.initResultSlipUpload();
+    this.resetResultSlipSession();
 
     var self = this;
     function openDlg() {
@@ -967,27 +1198,30 @@ var FixturesPage = {
       return;
     }
 
-    ApiClient.get({ action: 'getBreaksForFixture', fixtureId: fid })
-      .then(function (res) {
-        self.applyBreaksResponseToDialogFields(res);
-        openDlg();
-      })
-      .catch(function (err) {
-        var loadMsg = document.getElementById('fixture-result-msg');
-        if (loadMsg) {
-          var base =
-            err && err.message ? String(err.message) : 'Could not load breaks for this match.';
-          var extra =
-            base.indexOf('Unknown action') !== -1 || base.indexOf('getBreaksForFixture') !== -1
-              ? ' Deploy the latest `crossguns-api` Edge Function (see docs/SUPABASE_SETUP.md).'
-              : '';
-          loadMsg.textContent = base + extra;
-          loadMsg.hidden = false;
-          loadMsg.classList.remove('msg--success');
-          loadMsg.classList.add('msg--warning');
-        }
-        openDlg();
-      });
+    Promise.all([
+      ApiClient.get({ action: 'getBreaksForFixture', fixtureId: fid })
+        .then(function (res) {
+          self.applyBreaksResponseToDialogFields(res);
+        })
+        .catch(function (err) {
+          var loadMsg = document.getElementById('fixture-result-msg');
+          if (loadMsg) {
+            var base =
+              err && err.message ? String(err.message) : 'Could not load breaks for this match.';
+            var extra =
+              base.indexOf('Unknown action') !== -1 || base.indexOf('getBreaksForFixture') !== -1
+                ? ' Deploy the latest `crossguns-api` Edge Function (see docs/SUPABASE_SETUP.md).'
+                : '';
+            loadMsg.textContent = base + extra;
+            loadMsg.hidden = false;
+            loadMsg.classList.remove('msg--success');
+            loadMsg.classList.add('msg--warning');
+          }
+        }),
+      self.loadResultSlipForDialog(fid),
+    ]).then(function () {
+      openDlg();
+    });
   },
 
   submitResultDialog: async function () {
@@ -998,10 +1232,14 @@ var FixturesPage = {
     var pidB = document.getElementById('fixture-result-player-b-id').value;
     var scoreA = parseInt(document.getElementById('fixture-result-score-a').value, 10) || 0;
     var scoreB = parseInt(document.getElementById('fixture-result-score-b').value, 10) || 0;
-    var matchDate = document.getElementById('fixture-result-date').value;
+    var matchDate = this.resultDialogMatchDateISO();
     var framesToWin = this.framesToWin();
 
     if (!fixtureId) throw new Error('Missing fixture');
+
+    if (!matchDate) {
+      throw new Error('Enter a valid match date (e.g. 31 Jan 2026).');
+    }
 
     if (!this.canEnterResult()) {
       throw new Error(
@@ -1063,12 +1301,18 @@ var FixturesPage = {
           value: row.value,
         });
       }
+      await this.commitResultSlipIfNeeded(fixtureId);
+    } else {
+      this._slipPendingUploaded = false;
+      this._slipHasCommitted = false;
+      if (typeof ResultSlipUpload !== 'undefined') ResultSlipUpload.clearImage();
     }
 
     if (msg) {
       msg.textContent = clearing ? 'Result cleared.' : 'Saved.';
       msg.classList.add('msg--success');
     }
+    this._slipSaveSucceeded = true;
     if (dlg) dlg.close();
     window.dispatchEvent(
       new CustomEvent(this.RESULT_SAVED_EVENT, { detail: { fixtureId: fixtureId } })

@@ -35,8 +35,10 @@
     <script src="assets/js/utils/score-passcode.js"></script>
     <script src="assets/js/utils/formatters.js"></script>
     <script src="assets/js/utils/brief-message.js"></script>
+    <script src="assets/js/utils/image-compress.js"></script>
     <script src="assets/js/utils/image-loader.js"></script>
     <script src="assets/js/components/league-standings.js"></script>
+    <script src="assets/js/components/result-slip-upload.js"></script>
     <script src="assets/js/utils/knockout-rounds.js"></script>
     <script src="assets/js/pages/index.js"></script>
     <script src="assets/js/pages/fixtures.js"></script>
@@ -100,7 +102,10 @@
               <input type="hidden" id="fixture-result-player-b-id" />
               <p class="fixture-result-date-row">
                 <label for="fixture-result-date">Match date</label>
-                <input type="date" id="fixture-result-date" required />
+                <span class="fixture-result-date-controls">
+                  <input type="text" id="fixture-result-date" required placeholder="31 Jan 2026" inputmode="text" autocomplete="off" spellcheck="false" />
+                  <input type="date" id="fixture-result-date-picker" class="fixture-result-date-picker" aria-label="Choose match date" />
+                </span>
               </p>
               <div class="fixture-result-player-block">
                 <div id="fixture-result-label-a" class="fixture-result-player-name"></div>
@@ -133,6 +138,7 @@
               <p id="fixture-result-msg" class="msg" hidden></p>
               <div class="fixture-result-actions">
                 <button type="submit" class="btn fixture-result-btn fixture-result-btn--save" id="fixture-result-save"><span class="fixture-result-btn__text">Save</span></button>
+                <button type="button" id="fixture-result-slip-btn" class="result-slip-btn" aria-label="Result slip photo"></button>
                 <button type="button" class="btn fixture-result-btn fixture-result-btn--cancel" id="fixture-result-cancel"><span class="fixture-result-btn__text">Cancel</span></button>
               </div>
             </form>
