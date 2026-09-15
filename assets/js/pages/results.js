@@ -217,6 +217,16 @@ var ResultsPage = {
       grouped[week].push(r);
     });
 
+    orderedWeeks.sort(function (a, b) {
+      var na = parseInt(a, 10);
+      var nb = parseInt(b, 10);
+      var aNum = Number.isFinite(na) && String(na) === a;
+      var bNum = Number.isFinite(nb) && String(nb) === b;
+      if (aNum && bNum) return na - nb;
+      if (aNum !== bNum) return aNum ? -1 : 1;
+      return a.localeCompare(b);
+    });
+
     return { grouped: grouped, orderedWeeks: orderedWeeks };
   },
 

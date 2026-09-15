@@ -30,22 +30,7 @@ const IndexPage = {
   },
 
   topPlayersLabel: function (rows) {
-    var sorted = LeagueStandings.sort(rows || []);
-    if (!sorted.length) return 'N/A';
-    var topPts = Formatters.toInt(sorted[0].Pts, 0);
-    var topPM = Formatters.toInt(sorted[0]['+/-'], 0);
-    var leaders = sorted.filter(function (r) {
-      return Formatters.toInt(r.Pts, 0) === topPts && Formatters.toInt(r['+/-'], 0) === topPM;
-    });
-    if (leaders.length === 0) return sorted[0]['Player Name'] || 'N/A';
-    if (leaders.length === 1) return leaders[0]['Player Name'];
-    return (
-      leaders
-        .map(function (r) {
-          return r['Player Name'];
-        })
-        .join(' & ') + ' (tied)'
-    );
+    return LeagueStandings.leadersLabel(rows);
   },
 
   buildLeagueCard: function (season, groups) {

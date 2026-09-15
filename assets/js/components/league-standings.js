@@ -15,6 +15,29 @@ const LeagueStandings = {
   },
 
   /**
+   * Home-card leader label from server Rank (joint Rank 1 => "A & B (tied)").
+   * @param {Array} rows Already-ordered standings rows with Rank.
+   * @returns {string}
+   */
+  leadersLabel: function (rows) {
+    var sorted = this.sort(rows || []);
+    if (!sorted.length) return 'N/A';
+    var topRank = Formatters.toInt(sorted[0].Rank, 1);
+    var leaders = sorted.filter(function (r) {
+      return Formatters.toInt(r.Rank, 0) === topRank;
+    });
+    if (leaders.length === 0) return sorted[0]['Player Name'] || 'N/A';
+    if (leaders.length === 1) return leaders[0]['Player Name'];
+    return (
+      leaders
+        .map(function (r) {
+          return r['Player Name'];
+        })
+        .join(' & ') + ' (tied)'
+    );
+  },
+
+  /**
    * Render league standings as monospaced text inside a <pre> container.
    * @param {string} containerId
    * @param {Array}  league Already-ordered league rows.
