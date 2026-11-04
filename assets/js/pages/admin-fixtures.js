@@ -565,6 +565,7 @@ var AdminFixturesPage = (function () {
         var center = document.createElement('button');
         center.type = 'button';
         center.className = 'fixture-vs-btn admin-fixtures-list__vs';
+        center.setAttribute('data-help', 'adminFx.edit');
         center.textContent = 'V';
         center.setAttribute('aria-label', 'Edit fixture: ' + nameA + ' vs ' + nameB);
         center.addEventListener('click', function () {

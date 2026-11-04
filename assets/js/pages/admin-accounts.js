@@ -29,9 +29,9 @@ var AdminAccountsPage = (function () {
       '<p class="admin-ac-code__lead">' + esc(lead) + '</p>' +
       '<p class="account-code">' + esc(code) + '</p>' +
       '<p class="admin-ac-code__actions">' +
-      '<button type="button" class="btn admin-ac-btn" data-copy-code="' + esc(code) + '">Copy</button>' +
+      '<button type="button" class="btn admin-ac-btn" data-help="accounts.copy" data-copy-code="' + esc(code) + '">Copy</button>' +
       (typeof navigator !== 'undefined' && navigator.share
-        ? '<button type="button" class="btn admin-ac-btn" data-share-code="' + esc(code) +
+        ? '<button type="button" class="btn admin-ac-btn" data-help="accounts.share" data-share-code="' + esc(code) +
           '" data-share-purpose="' + esc(purpose) +
           '" data-share-handle="' + esc(handle || '') +
           '">Share</button>'
@@ -194,7 +194,7 @@ var AdminAccountsPage = (function () {
               ? 'Approver'
               : (account.disabled ? 'Disabled' : '');
           return (
-            '<button type="button" class="admin-ac-row" data-account="' + esc(account.id) + '">' +
+            '<button type="button" class="admin-ac-row" data-help="accounts.account" data-account="' + esc(account.id) + '">' +
             '<span class="admin-ac-row__text">' +
             '<span class="admin-ac-row__title">' + esc(account.handle) + '</span>' +
             '<span class="admin-ac-row__meta">' + esc(meta.join(' · ')) + '</span>' +
@@ -232,7 +232,7 @@ var AdminAccountsPage = (function () {
             '<span class="admin-ac-row__title">' + esc(title) + '</span>' +
             '<span class="admin-ac-row__meta">' + esc(meta.join(' · ')) + '</span>' +
             '</span>' +
-            '<button type="button" class="btn admin-ac-btn" data-revoke="' + esc(invite.id) + '">Revoke</button>' +
+            '<button type="button" class="btn admin-ac-btn" data-help="accounts.revoke" data-revoke="' + esc(invite.id) + '">Revoke</button>' +
             '</div>'
           );
         })

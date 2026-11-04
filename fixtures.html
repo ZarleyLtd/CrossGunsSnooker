@@ -51,38 +51,42 @@
     <script src="assets/js/pages/handicaps.js"></script>
     <script src="assets/js/pages/top-breaks.js"></script>
     <script src="assets/js/pages/under-development.js"></script>
+    <script src="assets/js/utils/help-catalog.js"></script>
+    <script src="assets/js/components/contextual-help.js"></script>
     <script defer src="assets/js/main.js"></script>
   </head>
-  <body class="page-template">
+  <body class="page-template" data-page="fixtures">
     <header class="top js-header">
-      <a class="logo" href="index.html">
+      <a class="logo" href="index.html" data-help="chrome.logo">
         <img src="assets/images/crossguns-logo.png" alt="CrossGuns Snooker League" width="281" height="445">
       </a>
+      
+      <button type="button" class="help-toggle" data-help-toggle aria-pressed="false" aria-label="Help: tap, then tap a control" title="Help">?</button>
       <nav class="navbar js-navbar">
-        <button class="navbar__toggle js-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+        <button class="navbar__toggle js-toggle" data-help="chrome.menu" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
           <span class="navbar__toggle-box">
             <span class="navbar__toggle-inner">Menu</span>
           </span>
         </button>
         <ul class="navbar__menu">
-          <li><a href="index.html" target="_self">Home</a></li>
-          <li class="nav-item-standings"><a href="leagues.html" target="_self" class="nav-standings-link">Leagues</a></li>
-          <li class="active"><a href="fixtures.html" target="_self">Fixtures</a></li>
-          <li><a href="results.html" target="_self">Results</a></li>
-          <li><a href="top-breaks.html" target="_self">Top Breaks</a></li>
-          <li><a href="handicaps.html" target="_self">Handicaps</a></li>
-          <li><a href="rules.html" target="_self">Rules</a></li>
+          <li><a data-help="chrome.navHome" href="index.html" target="_self">Home</a></li>
+          <li class="nav-item-standings"><a data-help="chrome.navLeagues" href="leagues.html" target="_self" class="nav-standings-link">Leagues</a></li>
+          <li class="active"><a data-help="chrome.navFixtures" href="fixtures.html" target="_self">Fixtures</a></li>
+          <li><a data-help="chrome.navResults" href="results.html" target="_self">Results</a></li>
+          <li><a data-help="chrome.navBreaks" href="top-breaks.html" target="_self">Top Breaks</a></li>
+          <li><a data-help="chrome.navHandicaps" href="handicaps.html" target="_self">Handicaps</a></li>
+          <li><a data-help="chrome.navRules" href="rules.html" target="_self">Rules</a></li>
           <li class="nav-account-signed-out">
-            <button type="button" class="nav-account-connect">Connect</button>
+            <button type="button" class="nav-account-connect" data-help="chrome.connect">Connect</button>
           </li>
           <li class="nav-account-signed-in" hidden>
-            <span class="nav-account-who"></span>
+            <span class="nav-account-who" data-help="chrome.account"></span>
           </li>
           <li class="nav-account-signed-in" hidden>
-            <button type="button" class="nav-account-signout">Sign out</button>
+            <button type="button" class="nav-account-signout" data-help="chrome.signOut">Sign out</button>
           </li>
-          <li><button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-accounts.html" target="_self">Accounts</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
+          <li><button type="button" class="nav-admin-toggle" data-help="chrome.adminToggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navManageComps" href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navManagePlayers" href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navManageFixtures" href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navAccounts" href="admin-accounts.html" target="_self">Accounts</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navBulkPlayers" href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navBulkFixtures" href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
         </ul>
       </nav>
     </header>
@@ -99,14 +103,15 @@
           </figure>
         </div>
         <div class="entry-wrapper content__entry">
-          <p id="page-competition-name" class="align-center" style="color:#169179;font-weight:600;margin-bottom:1rem;"></p>
-          <div id="filter-container" class="league-filter" hidden aria-label="Filter by group"></div>
+          <p id="page-competition-name" data-help="chrome.compName" class="align-center" style="color:#169179;font-weight:600;margin-bottom:1rem;"></p>
+          <div id="filter-container" data-help="chrome.groupFilter" class="league-filter" hidden aria-label="Filter by group"></div>
           <div id="fixtures-list" style="text-align: center; margin: 0 auto; max-width: 600px"></div>
           <p class="align-right"></p>
 
-          <dialog id="fixture-result-dialog" class="fixture-result-dialog" aria-labelledby="fixture-result-title">
+          <dialog id="fixture-result-dialog" class="fixture-result-dialog" aria-labelledby="fixture-result-title" data-help="result.dialog">
+            <button type="button" class="help-toggle help-toggle--corner" data-help-toggle aria-pressed="false" aria-label="Help: tap, then tap a control" title="Help">?</button>
             <form id="fixture-result-form" class="fixture-result-form">
-              <button type="button" id="fixture-result-approve" class="fixture-result-approve" hidden>Approve</button>
+              <button type="button" id="fixture-result-approve" class="fixture-result-approve" hidden data-help="result.approve">Approve</button>
               <h2 id="fixture-result-title" class="fixture-result-dialog__heading">Enter result</h2>
               <p id="fixture-result-entered-by" class="fixture-result-entered-by" hidden></p>
               <p id="fixture-result-approved-by" class="fixture-result-entered-by fixture-result-approved-by" hidden></p>
@@ -116,14 +121,14 @@
               <p class="fixture-result-date-row">
                 <label for="fixture-result-date">Match date</label>
                 <span class="fixture-result-date-controls">
-                  <input type="text" id="fixture-result-date" required placeholder="31 Jan 2026" inputmode="text" autocomplete="off" spellcheck="false" />
-                  <input type="date" id="fixture-result-date-picker" class="fixture-result-date-picker" aria-label="Choose match date" />
+                  <input type="text" id="fixture-result-date" required placeholder="31 Jan 2026" inputmode="text" autocomplete="off" spellcheck="false" data-help="result.date">
+                  <input type="date" id="fixture-result-date-picker" class="fixture-result-date-picker" aria-label="Choose match date" data-help="result.datePicker" />
                 </span>
               </p>
               <div class="fixture-result-player-block">
                 <div id="fixture-result-label-a" class="fixture-result-player-name"></div>
                 <div class="fixture-result-score-controls">
-                  <div id="fixture-frame-racks-a" class="fixture-frame-racks-host" data-frame-racks-for="a" role="group" aria-label="Frames scored"></div>
+                  <div id="fixture-frame-racks-a" class="fixture-frame-racks-host" data-frame-racks-for="a" role="group" aria-label="Frames scored" data-help="result.frames"></div>
                   <div class="fixture-frame-score-num" id="fixture-result-score-a-display">0</div>
                   <input type="hidden" id="fixture-result-score-a" value="0" />
                 </div>
@@ -131,13 +136,13 @@
                   <div class="fixture-breaks-entry__meta">
                     <label for="fixture-breaks-field-a" class="fixture-breaks-entry__label">Breaks:</label>
                   </div>
-                  <input type="text" id="fixture-breaks-field-a" class="fixture-breaks-entry__input" autocomplete="off" spellcheck="false" placeholder="e.g. 32, 47" />
+                  <input type="text" id="fixture-breaks-field-a" class="fixture-breaks-entry__input" autocomplete="off" spellcheck="false" placeholder="e.g. 32, 47" data-help="result.breaks">
                 </div>
               </div>
               <div class="fixture-result-player-block">
                 <div id="fixture-result-label-b" class="fixture-result-player-name"></div>
                 <div class="fixture-result-score-controls">
-                  <div id="fixture-frame-racks-b" class="fixture-frame-racks-host" data-frame-racks-for="b" role="group" aria-label="Frames scored"></div>
+                  <div id="fixture-frame-racks-b" class="fixture-frame-racks-host" data-frame-racks-for="b" role="group" aria-label="Frames scored" data-help="result.frames"></div>
                   <div class="fixture-frame-score-num" id="fixture-result-score-b-display">0</div>
                   <input type="hidden" id="fixture-result-score-b" value="0" />
                 </div>
@@ -145,14 +150,14 @@
                   <div class="fixture-breaks-entry__meta">
                     <label for="fixture-breaks-field-b" class="fixture-breaks-entry__label">Breaks:</label>
                   </div>
-                  <input type="text" id="fixture-breaks-field-b" class="fixture-breaks-entry__input" autocomplete="off" spellcheck="false" placeholder="e.g. 32, 47" />
+                  <input type="text" id="fixture-breaks-field-b" class="fixture-breaks-entry__input" autocomplete="off" spellcheck="false" placeholder="e.g. 32, 47" data-help="result.breaks">
                 </div>
               </div>
               <p id="fixture-result-msg" class="msg" hidden></p>
               <div class="fixture-result-actions">
-                <button type="submit" class="btn fixture-result-btn fixture-result-btn--save" id="fixture-result-save"><span class="fixture-result-btn__text">Save</span></button>
-                <button type="button" id="fixture-result-slip-btn" class="result-slip-btn" aria-label="Result slip photo"></button>
-                <button type="button" class="btn fixture-result-btn fixture-result-btn--cancel" id="fixture-result-cancel"><span class="fixture-result-btn__text">Cancel</span></button>
+                <button type="submit" class="btn fixture-result-btn fixture-result-btn--save" id="fixture-result-save" data-help="result.save"><span class="fixture-result-btn__text">Save</span></button>
+                <button type="button" id="fixture-result-slip-btn" class="result-slip-btn" aria-label="Result slip photo" data-help="result.slip"></button>
+                <button type="button" class="btn fixture-result-btn fixture-result-btn--cancel" id="fixture-result-cancel" data-help="result.cancel"><span class="fixture-result-btn__text">Cancel</span></button>
               </div>
             </form>
           </dialog>
@@ -163,14 +168,13 @@
       <div class="wrapper">
         <nav class="footer__nav">
           <ul>
-            <li><a href="leagues.html" class="al footer-standings-link" target="_self">Leagues</a></li>
-            <li><a href="fixtures.html" class="al" target="_self">Fixtures</a></li>
-            <li><a href="results.html" class="al" target="_self">Results</a></li>
+            <li><a data-help="chrome.navLeagues" href="leagues.html" class="al footer-standings-link" target="_self">Leagues</a></li>
+            <li><a data-help="chrome.navFixtures" href="fixtures.html" class="al" target="_self">Fixtures</a></li>
+            <li><a data-help="chrome.navResults" href="results.html" class="al" target="_self">Results</a></li>
           </ul>
         </nav>
         <div class="footer__copyright"><p><span style="color: #169179;">by JP</span></p></div>
-        <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top">
-          <svg width="20" height="20" viewBox="0 0 24 24">
+        <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top" data-help="chrome.backToTop"><svg width="20" height="20" viewBox="0 0 24 24">
             <path d="M8 6L12 2L16 6" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
             <path d="M12 2V22" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
           </svg>

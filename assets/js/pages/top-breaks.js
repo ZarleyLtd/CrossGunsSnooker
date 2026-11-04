@@ -78,13 +78,14 @@ const TopBreaksPage = {
         : '<span style="color:#777;">[actual break]</span>';
       const player = TopBreaksPage._escape(b['Player Name']);
       const opponent = TopBreaksPage._escape(b['Opponent']);
-      return '<div style="margin-left: 1em;">'
+      return '<div style="margin-left: 1em;" data-help="breaks.row">'
         + '<strong>' + adjusted + '</strong> '
         + adjustmentDisplay + ' – ' + player + ' '
         + '<span style="color:#777;">(v ' + opponent + ')</span>'
         + '</div>';
     }).join('');
 
+    container.setAttribute('data-help', 'breaks.list');
     container.innerHTML = html;
   },
 

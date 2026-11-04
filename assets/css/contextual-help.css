@@ -1,0 +1,175 @@
+/**
+ * Contextual help: help-mode hint and anchored popover.
+ * Shell: full-width header (no sidenav). Overlays sit above z-index 1000,
+ * so the hint and popover are raised above them. Native dialogs mount both
+ * inside the dialog; see contextual-help.js.
+ */
+:root {
+  --header-h: var(--navbar-height, 4.4rem);
+  --accent: var(--color, #d73a42);
+  --accent-ink: var(--white, #ffffff);
+  --accent-soft: color-mix(in srgb, var(--color, #d73a42) 22%, var(--page-bg, #fff));
+  --panel: var(--page-bg, #ffffff);
+  --ink: var(--text-color, #17181e);
+  --line: var(--light, #cacbcf);
+  --radius: calc(var(--border-radius, 3px) * 3);
+  --shadow: 0 8px 32px rgba(23, 24, 30, 0.18);
+  --muted: var(--gray, #57585a);
+}
+
+body.help-mode,
+body.help-mode * {
+  cursor: help !important;
+}
+
+.help-hint {
+  position: fixed;
+  top: var(--header-h);
+  left: 0;
+  right: 0;
+  z-index: 2300;
+  padding: 0.35rem 0.9rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+  pointer-events: none;
+}
+
+dialog > .help-hint,
+.help-hint--in-dialog {
+  top: 0;
+  z-index: 8;
+}
+
+button.help-toggle[data-help-toggle] {
+  order: 2;
+  flex: 0 0 auto;
+  width: 2.2rem;
+  height: 2.2rem;
+  min-width: 2.2rem;
+  margin: 0 0.15rem 0 0.65rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink);
+  font-family: var(--menu-font, inherit);
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+button.help-toggle[data-help-toggle]:hover,
+button.help-toggle[data-help-toggle]:focus {
+  background: var(--lighter, #f3f3f3);
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+button.help-toggle[data-help-toggle][aria-pressed='true'],
+button.help-toggle[data-help-toggle][aria-pressed='true']:hover,
+button.help-toggle[data-help-toggle][aria-pressed='true']:focus {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.help-toggle--corner,
+.admin-modal__header > .help-toggle {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.45rem;
+  z-index: 4;
+  margin: 0;
+}
+
+.admin-modal__header {
+  position: relative;
+}
+
+.fixture-result-dialog .fixture-result-dialog__heading,
+dialog.admin-unlock-dialog .admin-unlock-dialog__title,
+.admin-fixture-dialog .admin-fixture-dialog__title,
+.admin-modal__header h2 {
+  padding-left: 2.6rem;
+  padding-right: 2.6rem;
+}
+
+.result-slip-menu__tools {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.result-slip-lightbox__content > .help-toggle {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.35rem;
+  z-index: 2;
+  margin: 0;
+}
+
+.help-popover {
+  position: fixed;
+  z-index: 2400;
+  width: min(22rem, calc(100vw - 1.2rem));
+  max-height: min(70vh, 24rem);
+  overflow: auto;
+  padding: 0.85rem 1rem 1rem;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+dialog > .help-popover {
+  z-index: 9;
+}
+
+button.help-popover__close {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  left: auto;
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.help-popover__close:hover,
+.help-popover__close:focus {
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--ink);
+}
+
+.help-popover h3 {
+  margin: 0 2rem 0.4rem 0;
+  font-size: 1rem;
+  color: var(--ink);
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.help-popover p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--muted);
+}

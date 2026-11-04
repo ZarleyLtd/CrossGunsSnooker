@@ -99,6 +99,7 @@ var LeagueGroupFilter = {
   createLabel: function (value, text) {
     var label = document.createElement('label');
     label.className = 'league-label';
+    label.setAttribute('data-help', 'chrome.groupFilter');
     var input = document.createElement('input');
     input.type = 'radio';
     input.name = 'league';

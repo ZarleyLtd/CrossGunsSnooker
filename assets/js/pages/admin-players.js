@@ -69,7 +69,7 @@ var AdminPlayersPage = (function () {
       container.innerHTML = items
         .map(function (item) {
           return (
-            '<button type="button" class="admin-player-picks__row admin-item-list__row" data-id="' +
+            '<button type="button" class="admin-player-picks__row admin-item-list__row" data-help="adminPlayers.row" data-id="' +
             esc(item.id) +
             '">' +
             '<span class="admin-player-picks__name">' +

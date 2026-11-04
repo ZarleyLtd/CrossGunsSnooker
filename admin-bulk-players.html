@@ -26,38 +26,42 @@
     <script src="assets/js/utils/player-slug.js"></script>
     <script src="assets/js/utils/csv-parse.js"></script>
     <script defer src="assets/js/pages/admin-bulk-players.js"></script>
+    <script src="assets/js/utils/help-catalog.js"></script>
+    <script src="assets/js/components/contextual-help.js"></script>
     <script defer src="assets/js/main.js"></script>
   </head>
-  <body class="page-template">
+  <body class="page-template" data-page="admin-bulk-players">
     <header class="top js-header">
-      <a class="logo" href="index.html">
+      <a class="logo" href="index.html" data-help="chrome.logo">
         <img src="assets/images/crossguns-logo.png" alt="CrossGuns Snooker League" width="281" height="445" />
       </a>
+      
+      <button type="button" class="help-toggle" data-help-toggle aria-pressed="false" aria-label="Help: tap, then tap a control" title="Help">?</button>
       <nav class="navbar js-navbar">
-        <button class="navbar__toggle js-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+        <button class="navbar__toggle js-toggle" data-help="chrome.menu" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
           <span class="navbar__toggle-box">
             <span class="navbar__toggle-inner">Menu</span>
           </span>
         </button>
         <ul class="navbar__menu">
-          <li><a href="index.html" target="_self">Home</a></li>
-          <li><a href="leagues.html" target="_self">Leagues</a></li>
-          <li><a href="fixtures.html" target="_self">Fixtures</a></li>
-          <li><a href="results.html" target="_self">Results</a></li>
-          <li><a href="top-breaks.html" target="_self">Top Breaks</a></li>
-          <li><a href="handicaps.html" target="_self">Handicaps</a></li>
-          <li><a href="rules.html" target="_self">Rules</a></li>
+          <li><a data-help="chrome.navHome" href="index.html" target="_self">Home</a></li>
+          <li><a data-help="chrome.navLeagues" href="leagues.html" target="_self">Leagues</a></li>
+          <li><a data-help="chrome.navFixtures" href="fixtures.html" target="_self">Fixtures</a></li>
+          <li><a data-help="chrome.navResults" href="results.html" target="_self">Results</a></li>
+          <li><a data-help="chrome.navBreaks" href="top-breaks.html" target="_self">Top Breaks</a></li>
+          <li><a data-help="chrome.navHandicaps" href="handicaps.html" target="_self">Handicaps</a></li>
+          <li><a data-help="chrome.navRules" href="rules.html" target="_self">Rules</a></li>
           <li class="nav-account-signed-out">
-            <button type="button" class="nav-account-connect">Connect</button>
+            <button type="button" class="nav-account-connect" data-help="chrome.connect">Connect</button>
           </li>
           <li class="nav-account-signed-in" hidden>
-            <span class="nav-account-who"></span>
+            <span class="nav-account-who" data-help="chrome.account"></span>
           </li>
           <li class="nav-account-signed-in" hidden>
-            <button type="button" class="nav-account-signout">Sign out</button>
+            <button type="button" class="nav-account-signout" data-help="chrome.signOut">Sign out</button>
           </li>
-          <li><button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-accounts.html" target="_self">Accounts</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
+          <li><button type="button" class="nav-admin-toggle" data-help="chrome.adminToggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navManageComps" href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navManagePlayers" href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navManageFixtures" href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navAccounts" href="admin-accounts.html" target="_self">Accounts</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navBulkPlayers" href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navBulkFixtures" href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
         </ul>
       </nav>
     </header>
@@ -80,7 +84,7 @@
           <div id="adminBulkPlPanel" hidden>
             <p id="adminBulkPlMsg" class="msg" hidden></p>
             <div class="admin-toolbar">
-              <a href="admin-players.html" class="btn">&larr; Players</a>
+              <a data-help="chrome.navManagePlayers" href="admin-players.html" class="btn">&larr; Players</a>
             </div>
             <h2 class="h3">Bulk CSV (players + handicaps)</h2>
             <p>
@@ -88,7 +92,7 @@
               with PlayerName. Player id is derived from the name (same rules as the sheet migration script).
             </p>
             <p>
-              <label><input type="checkbox" id="adminBulkPlRosterChk" /> Also add each player to season roster</label>
+              <label><input type="checkbox" id="adminBulkPlRosterChk" data-help="adminBulk.roster" /> Also add each player to season roster</label>
             </p>
             <p>
               <label for="adminBulkPlRosterSeason">Roster season</label><br />
@@ -99,10 +103,10 @@
               <select id="adminBulkPlRosterLeague"></select>
             </p>
             <p>
-              <textarea id="adminBulkPlCsv" rows="8" style="width: 100%; max-width: 40rem" placeholder="Jane Doe,42,2025-09-01"></textarea>
+              <textarea id="adminBulkPlCsv" data-help="adminBulk.csv" rows="8" style="width: 100%; max-width: 40rem" placeholder="Jane Doe,42,2025-09-01"></textarea>
             </p>
-            <p><button type="button" class="btn" id="adminBulkPlRun">Import rows</button></p>
-            <pre id="adminBulkPlLog" class="admin-log" style="max-height: 12rem; overflow: auto"></pre>
+            <p><button type="button" class="btn" id="adminBulkPlRun" data-help="adminBulk.run">Import rows</button></p>
+            <pre id="adminBulkPlLog" data-help="adminBulk.log" class="admin-log" style="max-height: 12rem; overflow: auto"></pre>
           </div>
         </div>
       </article>
@@ -111,14 +115,13 @@
       <div class="wrapper">
         <nav class="footer__nav">
           <ul>
-            <li><a href="leagues.html" class="al" target="_self">Leagues</a></li>
-            <li><a href="fixtures.html" class="al" target="_self">Fixtures</a></li>
-            <li><a href="results.html" class="al" target="_self">Results</a></li>
+            <li><a data-help="chrome.navLeagues" href="leagues.html" class="al" target="_self">Leagues</a></li>
+            <li><a data-help="chrome.navFixtures" href="fixtures.html" class="al" target="_self">Fixtures</a></li>
+            <li><a data-help="chrome.navResults" href="results.html" class="al" target="_self">Results</a></li>
           </ul>
         </nav>
         <div class="footer__copyright"><p><span style="color: #169179">by JP</span></p></div>
-        <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top">
-          <svg width="20" height="20" viewBox="0 0 24 24">
+        <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top" data-help="chrome.backToTop"><svg width="20" height="20" viewBox="0 0 24 24">
             <path d="M8 6L12 2L16 6" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
             <path d="M12 2V22" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
           </svg>

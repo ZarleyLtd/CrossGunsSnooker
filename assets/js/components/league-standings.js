@@ -81,6 +81,7 @@ const LeagueStandings = {
       ].join(' ');
       const span = document.createElement('span');
       span.className = player.unapproved ? 'standings-line standings-line--unapproved' : 'standings-line';
+      span.setAttribute('data-help', 'leagues.row');
       span.textContent = line;
       container.appendChild(span);
       container.appendChild(document.createTextNode('\n'));

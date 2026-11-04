@@ -240,7 +240,7 @@ var AdminPlayerPage = (function () {
             '<div class="admin-hc-list__row">' +
             '<button type="button" class="admin-player-picks__row admin-item-list__row admin-hc-list__main' +
             current +
-            '" data-id="' +
+            '" data-help="adminPlayer.handicapRow" data-id="' +
             esc(h.handicapId) +
             '">' +
             '<span class="admin-player-picks__name">' +
@@ -249,7 +249,7 @@ var AdminPlayerPage = (function () {
             '<span class="admin-item-list__meta">' +
             esc(h['Handicap Date'] || '') +
             '</span></button>' +
-            '<button type="button" class="btn btn-danger admin-hc-list__delete" data-id="' +
+            '<button type="button" class="btn btn-danger admin-hc-list__delete" data-help="adminPlayer.deleteHandicap" data-id="' +
             esc(h.handicapId) +
             '">Delete</button></div>'
           );

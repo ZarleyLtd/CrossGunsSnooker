@@ -507,6 +507,7 @@ var FixturesPage = {
     // Plain span (not <button>) so global button hover/border styles never apply.
     var el = document.createElement('span');
     el.className = 'fixture-player-name';
+    el.setAttribute('data-help', 'chrome.playerHandicap');
     el.textContent = name;
     el.style.flex = '1';
     el.style.textAlign = align === 'left' ? 'left' : 'right';
@@ -805,6 +806,7 @@ var FixturesPage = {
         btn.className = 'fixture-frame-rack';
         if (inverted) btn.classList.add('fixture-frame-rack--inverted');
         btn.setAttribute('data-rack-action', action);
+        btn.setAttribute('data-help', 'result.frames');
         btn.setAttribute('aria-label', label);
         var icon = document.createElement('span');
         icon.className = 'fixture-frame-rack-icon';
@@ -1041,6 +1043,7 @@ var FixturesPage = {
 
     orderedWeeks.forEach(function (week) {
       var h3 = document.createElement('h3');
+      h3.setAttribute('data-help', 'fixtures.week');
       if (isKnockout && options.sectionLabels) {
         h3.textContent = options.sectionLabels[week] || self.knockoutWeekLabel(week);
       } else if (isKnockout) {
@@ -1062,6 +1065,7 @@ var FixturesPage = {
 
         var div = document.createElement('div');
         div.className = 'fixture-row';
+        div.setAttribute('data-help', 'fixtures.match');
         div.style.display = 'flex';
         div.style.justifyContent = 'center';
         div.style.alignItems = 'center';
@@ -1118,6 +1122,7 @@ var FixturesPage = {
           center = document.createElement('button');
           center.type = 'button';
           center.className = 'fixture-vs-btn';
+          center.setAttribute('data-help', 'fixtures.enter');
           center.textContent = 'V';
           center.setAttribute(
             'aria-label',
@@ -1129,6 +1134,7 @@ var FixturesPage = {
         } else {
           center = document.createElement('span');
           center.className = 'fixture-vs-static';
+          center.setAttribute('data-help', 'fixtures.closed');
           center.textContent = 'V';
           if (fid && !resultReady) {
             center.setAttribute(

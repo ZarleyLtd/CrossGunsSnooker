@@ -19,41 +19,45 @@
     <script src="assets/js/utils/formatters.js"></script>
     <script src="assets/js/utils/image-loader.js"></script>
     <script defer src="assets/js/pages/admin-competitions.js"></script>
+    <script src="assets/js/utils/help-catalog.js"></script>
+    <script src="assets/js/components/contextual-help.js"></script>
     <script defer src="assets/js/main.js"></script>
   </head>
-  <body class="page-template">
+  <body class="page-template" data-page="admin-competitions">
     <header class="top js-header">
-      <a class="logo" href="index.html">
+      <a class="logo" href="index.html" data-help="chrome.logo">
         <img src="assets/images/crossguns-logo.png" alt="CrossGuns Snooker League" width="281" height="445" />
       </a>
+      
+      <button type="button" class="help-toggle" data-help-toggle aria-pressed="false" aria-label="Help: tap, then tap a control" title="Help">?</button>
       <nav class="navbar js-navbar">
-        <button class="navbar__toggle js-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+        <button class="navbar__toggle js-toggle" data-help="chrome.menu" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
           <span class="navbar__toggle-box"><span class="navbar__toggle-inner">Menu</span></span>
         </button>
         <ul class="navbar__menu">
-          <li><a href="index.html" target="_self">Home</a></li>
-          <li><a href="leagues.html" target="_self">Leagues</a></li>
-          <li><a href="fixtures.html" target="_self">Fixtures</a></li>
-          <li><a href="results.html" target="_self">Results</a></li>
-          <li><a href="top-breaks.html" target="_self">Top Breaks</a></li>
-          <li><a href="handicaps.html" target="_self">Handicaps</a></li>
-          <li><a href="rules.html" target="_self">Rules</a></li>
+          <li><a data-help="chrome.navHome" href="index.html" target="_self">Home</a></li>
+          <li><a data-help="chrome.navLeagues" href="leagues.html" target="_self">Leagues</a></li>
+          <li><a data-help="chrome.navFixtures" href="fixtures.html" target="_self">Fixtures</a></li>
+          <li><a data-help="chrome.navResults" href="results.html" target="_self">Results</a></li>
+          <li><a data-help="chrome.navBreaks" href="top-breaks.html" target="_self">Top Breaks</a></li>
+          <li><a data-help="chrome.navHandicaps" href="handicaps.html" target="_self">Handicaps</a></li>
+          <li><a data-help="chrome.navRules" href="rules.html" target="_self">Rules</a></li>
           <li class="nav-account-signed-out">
-            <button type="button" class="nav-account-connect">Connect</button>
+            <button type="button" class="nav-account-connect" data-help="chrome.connect">Connect</button>
           </li>
           <li class="nav-account-signed-in" hidden>
-            <span class="nav-account-who"></span>
+            <span class="nav-account-who" data-help="chrome.account"></span>
           </li>
           <li class="nav-account-signed-in" hidden>
-            <button type="button" class="nav-account-signout">Sign out</button>
+            <button type="button" class="nav-account-signout" data-help="chrome.signOut">Sign out</button>
           </li>
-          <li><button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-competitions.html" target="_self">Manage Comps</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-accounts.html" target="_self">Accounts</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
+          <li><button type="button" class="nav-admin-toggle" data-help="chrome.adminToggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navManageComps" href="admin-competitions.html" target="_self">Manage Comps</a></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navManagePlayers" href="admin-players.html" target="_self">Manage Players</a></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navManageFixtures" href="admin-fixtures.html" target="_self">Manage Fixtures</a></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navAccounts" href="admin-accounts.html" target="_self">Accounts</a></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navBulkPlayers" href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navBulkFixtures" href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
         </ul>
       </nav>
     </header>
@@ -76,9 +80,9 @@
           <div id="adminCompPanel" class="admin-container" hidden>
             <p id="adminCompMsg" class="msg" hidden></p>
             <div class="admin-toolbar">
-              <button type="button" class="btn" id="adminCompAddBtn">+ Add Comp</button>
+              <button type="button" class="btn" id="adminCompAddBtn" data-help="adminComps.add">+ Add Comp</button>
             </div>
-            <div id="adminCompList" class="admin-player-picks admin-item-list">
+            <div id="adminCompList" data-help="adminComps.list" class="admin-player-picks admin-item-list">
               <p class="admin-player-picks__hint"><em>Loading comps…</em></p>
             </div>
           </div>
@@ -86,35 +90,36 @@
       </article>
     </main>
 
-    <div id="adminCompModal" class="admin-modal admin-modal--dark admin-modal--season" role="dialog" aria-modal="true" aria-labelledby="adminCompModalTitle" hidden>
+    <div id="adminCompModal" class="admin-modal admin-modal--dark admin-modal--season" role="dialog" aria-modal="true" aria-labelledby="adminCompModalTitle" hidden data-help="adminComps.dialog">
       <div class="admin-modal__dialog admin-modal__dialog--wide">
         <div class="admin-modal__header">
+          <button type="button" class="help-toggle help-toggle--corner" data-help-toggle aria-pressed="false" aria-label="Help: tap, then tap a control" title="Help">?</button>
           <h2 id="adminCompModalTitle">Add Comp</h2>
-          <button type="button" class="admin-modal__close" id="adminCompModalClose" aria-label="Close">&times;</button>
+          <button type="button" class="admin-modal__close" id="adminCompModalClose" aria-label="Close" data-help="chrome.close">&times;</button>
         </div>
         <form id="adminCompForm">
           <div class="admin-form-group">
             <label for="adminCompName">Name</label>
-            <input type="text" id="adminCompName" required />
+            <input type="text" id="adminCompName" data-help="adminComps.name" required />
           </div>
           <div class="admin-form-row admin-form-row--type-current">
             <div class="admin-form-row__field admin-form-row__field--type">
               <label for="adminCompType">Type</label>
-              <select id="adminCompType">
+              <select id="adminCompType" data-help="adminComps.type">
                 <option value="league">League</option>
                 <option value="knockout">Knockout</option>
               </select>
             </div>
             <div class="admin-form-group--checkbox admin-form-group--checkbox-inline">
               <label for="adminCompCurrent">Current</label>
-              <input type="checkbox" id="adminCompCurrent" />
+              <input type="checkbox" id="adminCompCurrent" data-help="adminComps.current" />
             </div>
           </div>
           <div id="adminCompManageSection" class="admin-ls-manage" hidden>
             <div id="adminCompLeagueSection" class="admin-ls-league">
               <div class="admin-section-header">
                 <h3 class="admin-ls-manage__heading">Groups</h3>
-                <button type="button" class="btn" id="adminCompAddGroup">+ Add Group</button>
+                <button type="button" class="btn" id="adminCompAddGroup" data-help="adminComps.addGroup">+ Add Group</button>
               </div>
               <p class="admin-player-picks__hint">Each group needs at least two players. A player can only belong to one group.</p>
               <div id="adminCompGroupsList" class="admin-player-picks admin-item-list"></div>
@@ -122,7 +127,7 @@
             <div id="adminCompKnockoutStagesSection" class="admin-ls-knockout-stages" hidden>
               <div class="admin-section-header">
                 <h3 class="admin-ls-manage__heading">Knockout stage</h3>
-                <button type="button" class="btn" id="adminCompAddKnockout">Add knockout stage</button>
+                <button type="button" class="btn" id="adminCompAddKnockout" data-help="adminComps.addKnockout">Add knockout stage</button>
               </div>
               <div id="adminCompKnockoutStagesList" class="admin-player-picks admin-item-list"></div>
             </div>
@@ -139,11 +144,11 @@
           <p id="adminCompSaveFirstHint" class="admin-player-picks__hint">Save the comp first to add groups or players.</p>
           <div class="admin-form-actions">
             <div class="admin-form-actions__left">
-              <button type="button" class="btn btn-danger" id="adminCompDelete" hidden>Delete</button>
+              <button type="button" class="btn btn-danger" id="adminCompDelete" data-help="adminComps.delete" hidden>Delete</button>
             </div>
             <div class="admin-form-actions__right">
-              <button type="button" class="btn btn-secondary" id="adminCompModalCancel">Cancel</button>
-              <button type="submit" class="btn btn-save" id="adminCompSave">Save Comp</button>
+              <button type="button" class="btn btn-secondary" id="adminCompModalCancel" data-help="adminComps.cancel">Cancel</button>
+              <button type="submit" class="btn btn-save" id="adminCompSave" data-help="adminComps.save">Save Comp</button>
             </div>
           </div>
           <p id="adminCompModalMsg" class="msg admin-modal__msg admin-modal__msg--below-actions" hidden></p>
@@ -154,6 +159,7 @@
     <div id="adminCompKoLinkModal" class="admin-modal admin-modal--dark admin-modal--group" role="dialog" aria-modal="true" aria-labelledby="adminCompKoLinkModalTitle" hidden>
       <div class="admin-modal__dialog admin-modal__dialog--wide">
         <div class="admin-modal__header">
+          <button type="button" class="help-toggle help-toggle--corner" data-help-toggle aria-pressed="false" aria-label="Help: tap, then tap a control" title="Help">?</button>
           <h2 id="adminCompKoLinkModalTitle">Add knockout stage</h2>
           <button type="button" class="admin-modal__close" data-close="ko-link" aria-label="Close">&times;</button>
         </div>
@@ -200,6 +206,7 @@
     <div id="adminCompGroupModal" class="admin-modal admin-modal--dark admin-modal--group" role="dialog" aria-modal="true" hidden>
       <div class="admin-modal__dialog admin-modal__dialog--wide">
         <div class="admin-modal__header">
+          <button type="button" class="help-toggle help-toggle--corner" data-help-toggle aria-pressed="false" aria-label="Help: tap, then tap a control" title="Help">?</button>
           <h2 id="adminCompGroupModalTitle">Add Group</h2>
           <button type="button" class="admin-modal__close" data-close="group" aria-label="Close">&times;</button>
         </div>
@@ -244,14 +251,13 @@
       <div class="wrapper">
         <nav class="footer__nav">
           <ul>
-            <li><a href="leagues.html" class="al" target="_self">Leagues</a></li>
-            <li><a href="fixtures.html" class="al" target="_self">Fixtures</a></li>
-            <li><a href="results.html" class="al" target="_self">Results</a></li>
+            <li><a data-help="chrome.navLeagues" href="leagues.html" class="al" target="_self">Leagues</a></li>
+            <li><a data-help="chrome.navFixtures" href="fixtures.html" class="al" target="_self">Fixtures</a></li>
+            <li><a data-help="chrome.navResults" href="results.html" class="al" target="_self">Results</a></li>
           </ul>
         </nav>
         <div class="footer__copyright"><p><span style="color: #169179">by JP</span></p></div>
-        <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top">
-          <svg width="20" height="20" viewBox="0 0 24 24">
+        <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top" data-help="chrome.backToTop"><svg width="20" height="20" viewBox="0 0 24 24">
             <path d="M8 6L12 2L16 6" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
             <path d="M12 2V22" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
           </svg>

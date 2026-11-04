@@ -79,14 +79,15 @@ var AdminMode = {
     dlg.className = 'admin-unlock-dialog';
     dlg.setAttribute('aria-labelledby', 'admin-unlock-title');
     dlg.innerHTML =
-      '<form class="admin-unlock-dialog__form">' +
+      '<button type="button" class="help-toggle help-toggle--corner" data-help-toggle aria-pressed="false" aria-label="Help: tap, then tap a control" title="Help">?</button>' +
+      '<form class="admin-unlock-dialog__form" data-help="sheet.unlock">' +
       '<h2 id="admin-unlock-title" class="admin-unlock-dialog__title">Unlock Admin Mode</h2>' +
       '<p><label for="admin-unlock-secret">Password</label></p>' +
-      '<p><input type="password" id="admin-unlock-secret" autocomplete="current-password" required class="admin-unlock-dialog__input" /></p>' +
+      '<p><input type="password" id="admin-unlock-secret" data-help="sheet.secret" autocomplete="current-password" required class="admin-unlock-dialog__input" /></p>' +
       '<p id="admin-unlock-msg" class="admin-unlock-dialog__msg" hidden></p>' +
       '<p class="admin-unlock-dialog__actions">' +
-      '<button type="submit" class="btn" id="admin-unlock-submit">Unlock</button> ' +
-      '<button type="button" class="btn" id="admin-unlock-cancel">Cancel</button>' +
+      '<button type="submit" class="btn" id="admin-unlock-submit" data-help="sheet.unlockSubmit">Unlock</button> ' +
+      '<button type="button" class="btn" id="admin-unlock-cancel" data-help="sheet.cancel">Cancel</button>' +
       '</p>' +
       '</form>';
     document.body.appendChild(dlg);

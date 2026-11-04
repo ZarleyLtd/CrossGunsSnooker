@@ -26,52 +26,56 @@
     <script src="assets/js/utils/image-loader.js"></script>
     <script src="assets/js/utils/knockout-rounds.js"></script>
     <script defer src="assets/js/pages/admin-fixtures.js"></script>
+    <script src="assets/js/utils/help-catalog.js"></script>
+    <script src="assets/js/components/contextual-help.js"></script>
     <script defer src="assets/js/main.js"></script>
   </head>
-  <body class="page-template">
+  <body class="page-template" data-page="admin-fixtures">
     <header class="top js-header">
-      <a class="logo" href="index.html">
+      <a class="logo" href="index.html" data-help="chrome.logo">
         <img src="assets/images/crossguns-logo.png" alt="CrossGuns Snooker League" width="281" height="445" />
       </a>
+      
+      <button type="button" class="help-toggle" data-help-toggle aria-pressed="false" aria-label="Help: tap, then tap a control" title="Help">?</button>
       <nav class="navbar js-navbar">
-        <button class="navbar__toggle js-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+        <button class="navbar__toggle js-toggle" data-help="chrome.menu" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
           <span class="navbar__toggle-box">
             <span class="navbar__toggle-inner">Menu</span>
           </span>
         </button>
         <ul class="navbar__menu">
           <li>
-            <a href="index.html" target="_self">Home</a>
+            <a data-help="chrome.navHome" href="index.html" target="_self">Home</a>
           </li>
           <li>
-            <a href="leagues.html" target="_self">Leagues</a>
+            <a data-help="chrome.navLeagues" href="leagues.html" target="_self">Leagues</a>
           </li>
           <li>
-            <a href="fixtures.html" target="_self">Fixtures</a>
+            <a data-help="chrome.navFixtures" href="fixtures.html" target="_self">Fixtures</a>
           </li>
           <li>
-            <a href="results.html" target="_self">Results</a>
+            <a data-help="chrome.navResults" href="results.html" target="_self">Results</a>
           </li>
           <li>
-            <a href="top-breaks.html" target="_self">Top Breaks</a>
+            <a data-help="chrome.navBreaks" href="top-breaks.html" target="_self">Top Breaks</a>
           </li>
           <li>
-            <a href="handicaps.html" target="_self">Handicaps</a>
+            <a data-help="chrome.navHandicaps" href="handicaps.html" target="_self">Handicaps</a>
           </li>
           <li>
-            <a href="rules.html" target="_self">Rules</a>
+            <a data-help="chrome.navRules" href="rules.html" target="_self">Rules</a>
           </li>
           <li class="nav-account-signed-out">
-            <button type="button" class="nav-account-connect">Connect</button>
+            <button type="button" class="nav-account-connect" data-help="chrome.connect">Connect</button>
           </li>
           <li class="nav-account-signed-in" hidden>
-            <span class="nav-account-who"></span>
+            <span class="nav-account-who" data-help="chrome.account"></span>
           </li>
           <li class="nav-account-signed-in" hidden>
-            <button type="button" class="nav-account-signout">Sign out</button>
+            <button type="button" class="nav-account-signout" data-help="chrome.signOut">Sign out</button>
           </li>
-          <li><button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-accounts.html" target="_self">Accounts</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
+          <li><button type="button" class="nav-admin-toggle" data-help="chrome.adminToggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navManageComps" href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navManagePlayers" href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navManageFixtures" href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navAccounts" href="admin-accounts.html" target="_self">Accounts</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navBulkPlayers" href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navBulkFixtures" href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
         </ul>
       </nav>
     </header>
@@ -102,20 +106,21 @@
             <div class="admin-fixtures-toolbar">
               <div class="admin-fixtures-toolbar__season">
                 <label for="adminFxSeason">Comp</label>
-                <select id="adminFxSeason"></select>
+                <select id="adminFxSeason" data-help="adminFx.comp"></select>
               </div>
               <p id="adminFxCoherenceWarn" class="admin-fixtures-toolbar__warn msg msg--warning" hidden></p>
-              <button type="button" class="btn admin-fixtures-add-btn" id="adminFxAddBtn">+ Add Fixture</button>
+              <button type="button" class="btn admin-fixtures-add-btn" id="adminFxAddBtn" data-help="adminFx.add">+ Add Fixture</button>
             </div>
             <div id="adminFxList" class="admin-fixtures-list"></div>
 
-            <dialog id="admin-fixture-dialog" class="admin-fixture-dialog" aria-labelledby="admin-fixture-dialog-title">
+            <dialog id="admin-fixture-dialog" class="admin-fixture-dialog" aria-labelledby="admin-fixture-dialog-title" data-help="adminFx.dialog">
+              <button type="button" class="help-toggle help-toggle--corner" data-help-toggle aria-pressed="false" aria-label="Help: tap, then tap a control" title="Help">?</button>
               <form id="adminFxDialogForm">
                 <h2 id="admin-fixture-dialog-title" class="admin-fixture-dialog__title">Add / edit fixture</h2>
                 <input type="hidden" id="adminFxFixtureId" />
                 <p>
                   <label for="adminFxStage">Stage</label><br />
-                  <select id="adminFxStage" required>
+                  <select id="adminFxStage" required data-help="adminFx.stage">
                     <option value="league">League</option>
                     <option value="knockout">Knockout</option>
                   </select>
@@ -124,15 +129,15 @@
                   <div class="admin-fixture-dialog__group-week">
                     <p class="admin-fixture-dialog__field admin-fixture-dialog__field--group">
                       <label for="adminFxLeague">Group</label><br />
-                      <select id="adminFxLeague"></select>
+                      <select id="adminFxLeague" data-help="adminFx.group"></select>
                     </p>
                     <p class="admin-fixture-dialog__field admin-fixture-dialog__field--week">
                       <label for="adminFxWeek">Week</label><br />
-                      <input type="number" id="adminFxWeek" min="1" step="1" />
+                      <input type="number" id="adminFxWeek" min="1" step="1" data-help="adminFx.week">
                     </p>
                     <p class="admin-fixture-dialog__field admin-fixture-dialog__field--best-of">
                       <label for="adminFxBestOfLeague">Best of</label><br />
-                      <input type="number" id="adminFxBestOfLeague" class="admin-fixture-dialog__best-of" min="1" max="9" step="2" value="3" inputmode="numeric" />
+                      <input type="number" id="adminFxBestOfLeague" class="admin-fixture-dialog__best-of" min="1" max="9" step="2" value="3" inputmode="numeric" data-help="adminFx.bestOf">
                     </p>
                   </div>
                 </div>
@@ -140,28 +145,28 @@
                   <div class="admin-fixture-dialog__round-best-of">
                     <p class="admin-fixture-dialog__field admin-fixture-dialog__field--round">
                       <label for="adminFxRound">Round</label><br />
-                      <select id="adminFxRound"></select>
+                      <select id="adminFxRound" data-help="adminFx.round"></select>
                     </p>
                     <p class="admin-fixture-dialog__field admin-fixture-dialog__field--best-of">
                       <label for="adminFxBestOfKo">Best of</label><br />
-                      <input type="number" id="adminFxBestOfKo" class="admin-fixture-dialog__best-of" min="1" max="9" step="2" value="3" inputmode="numeric" />
+                      <input type="number" id="adminFxBestOfKo" class="admin-fixture-dialog__best-of" min="1" max="9" step="2" value="3" inputmode="numeric" data-help="adminFx.bestOf">
                     </p>
                   </div>
                 </div>
                 <div class="admin-fixture-dialog__players">
                   <p class="admin-fixture-dialog__player-row">
-                    <select id="adminFxPa" required aria-label="Player A"></select>
+                    <select id="adminFxPa" required aria-label="Player A" data-help="adminFx.player"></select>
                   </p>
                   <p class="admin-fixture-dialog__vs-row" aria-hidden="true">V</p>
                   <p class="admin-fixture-dialog__player-row">
-                    <select id="adminFxPb" required aria-label="Player B"></select>
+                    <select id="adminFxPb" required aria-label="Player B" data-help="adminFx.player"></select>
                   </p>
                 </div>
                 <p id="adminFxDialogMsg" class="msg" hidden></p>
                 <div class="admin-fixture-dialog__actions">
-                  <button type="submit" class="btn">Save</button>
-                  <button type="button" class="btn" id="adminFxCancelBtn">Cancel</button>
-                  <button type="button" class="btn admin-fixture-dialog__delete" id="adminFxDeleteBtn" hidden>Delete</button>
+                  <button type="submit" class="btn" data-help="adminFx.save">Save</button>
+                  <button type="button" class="btn" id="adminFxCancelBtn" data-help="adminFx.cancel">Cancel</button>
+                  <button type="button" class="btn admin-fixture-dialog__delete" id="adminFxDeleteBtn" hidden data-help="adminFx.delete">Delete</button>
                 </div>
               </form>
             </dialog>
@@ -174,21 +179,20 @@
         <nav class="footer__nav">
           <ul>
             <li>
-              <a href="leagues.html" class="al" target="_self">Leagues</a>
+              <a data-help="chrome.navLeagues" href="leagues.html" class="al" target="_self">Leagues</a>
             </li>
             <li>
-              <a href="fixtures.html" class="al" target="_self">Fixtures</a>
+              <a data-help="chrome.navFixtures" href="fixtures.html" class="al" target="_self">Fixtures</a>
             </li>
             <li>
-              <a href="results.html" class="al" target="_self">Results</a>
+              <a data-help="chrome.navResults" href="results.html" class="al" target="_self">Results</a>
             </li>
           </ul>
         </nav>
         <div class="footer__copyright">
           <p><span style="color: #169179">by JP</span></p>
         </div>
-        <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top">
-          <svg width="20" height="20" viewBox="0 0 24 24">
+        <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top" data-help="chrome.backToTop"><svg width="20" height="20" viewBox="0 0 24 24">
             <path
               d="M8 6L12 2L16 6"
               fill="none"

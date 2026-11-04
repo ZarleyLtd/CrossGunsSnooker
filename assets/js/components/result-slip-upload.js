@@ -126,9 +126,23 @@ const ResultSlipUpload = {
     var card = document.createElement('div');
     card.className = 'result-slip-menu-card';
 
+    var tools = document.createElement('div');
+    tools.className = 'result-slip-menu__tools';
+    var helpBtn = document.createElement('button');
+    helpBtn.type = 'button';
+    helpBtn.className = 'help-toggle';
+    helpBtn.setAttribute('data-help-toggle', '');
+    helpBtn.setAttribute('aria-pressed', 'false');
+    helpBtn.setAttribute('aria-label', 'Help: tap, then tap a control');
+    helpBtn.title = 'Help';
+    helpBtn.textContent = '?';
+    tools.appendChild(helpBtn);
+    card.appendChild(tools);
+
     var takeBtn = document.createElement('button');
     takeBtn.type = 'button';
     takeBtn.className = 'result-slip-menu-btn';
+    takeBtn.setAttribute('data-help', 'result.slipTake');
     takeBtn.textContent = 'Take Photo';
     takeBtn.addEventListener('click', () => {
       this._closeMenu();
@@ -139,6 +153,7 @@ const ResultSlipUpload = {
     var galleryBtn = document.createElement('button');
     galleryBtn.type = 'button';
     galleryBtn.className = 'result-slip-menu-btn';
+    galleryBtn.setAttribute('data-help', 'result.slipGallery');
     galleryBtn.textContent = 'Choose from Gallery';
     galleryBtn.addEventListener('click', () => {
       this._closeMenu();
@@ -149,6 +164,7 @@ const ResultSlipUpload = {
     var cancelBtn = document.createElement('button');
     cancelBtn.type = 'button';
     cancelBtn.className = 'result-slip-menu-cancel';
+    cancelBtn.setAttribute('data-help', 'result.slipCancel');
     cancelBtn.textContent = 'Cancel';
     cancelBtn.addEventListener('click', () => this._closeMenu());
     card.appendChild(cancelBtn);
@@ -184,9 +200,20 @@ const ResultSlipUpload = {
     var content = document.createElement('div');
     content.className = 'result-slip-lightbox__content';
 
+    var helpBtn = document.createElement('button');
+    helpBtn.type = 'button';
+    helpBtn.className = 'help-toggle';
+    helpBtn.setAttribute('data-help-toggle', '');
+    helpBtn.setAttribute('aria-pressed', 'false');
+    helpBtn.setAttribute('aria-label', 'Help: tap, then tap a control');
+    helpBtn.title = 'Help';
+    helpBtn.textContent = '?';
+    content.appendChild(helpBtn);
+
     var closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.className = 'result-slip-lightbox__close';
+    closeBtn.setAttribute('data-help', 'chrome.close');
     closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.innerHTML = '&times;';
     closeBtn.addEventListener('click', () => this._closeLightbox());
@@ -194,6 +221,7 @@ const ResultSlipUpload = {
 
     var img = document.createElement('img');
     img.className = 'result-slip-lightbox__img';
+    img.setAttribute('data-help', 'result.slipPhoto');
     img.alt = 'Result slip photo';
     img.src = this._currentImageUrl;
     content.appendChild(img);
@@ -204,6 +232,7 @@ const ResultSlipUpload = {
     var replaceBtn = document.createElement('button');
     replaceBtn.type = 'button';
     replaceBtn.className = 'result-slip-menu-btn';
+    replaceBtn.setAttribute('data-help', 'result.slipReplace');
     replaceBtn.textContent = 'Replace Photo';
     replaceBtn.addEventListener('click', () => {
       this._closeLightbox();
@@ -214,6 +243,7 @@ const ResultSlipUpload = {
     var removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.className = 'result-slip-menu-btn result-slip-menu-btn--danger';
+    removeBtn.setAttribute('data-help', 'result.slipRemove');
     removeBtn.textContent = 'Remove Photo';
     removeBtn.addEventListener('click', () => {
       this._closeLightbox();

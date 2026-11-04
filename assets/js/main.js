@@ -5,6 +5,10 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(function () {});
 }
 
+if (window.ContextualHelp && typeof window.ContextualHelp.init === 'function') {
+  window.ContextualHelp.init();
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   // Initialize image loading
   if (typeof ImageLoader !== 'undefined') {

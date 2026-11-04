@@ -55,41 +55,45 @@
     <script src="assets/js/pages/top-breaks.js"></script>
     <script src="assets/js/pages/under-development.js"></script>
     <!-- Main entry point -->
+    <script src="assets/js/utils/help-catalog.js"></script>
+    <script src="assets/js/components/contextual-help.js"></script>
     <script defer src="assets/js/main.js"></script>
     <style>
       .home-leader-group { margin-bottom: 2.25rem; }
       .home-leader-group:last-of-type { margin-bottom: 0; }
     </style>  </head>
-  <body class="page-template">
+  <body class="page-template" data-page="home">
     <header class="top js-header">
-      <a class="logo" href="index.html">
+      <a class="logo" href="index.html" data-help="chrome.logo">
         <img src="assets/images/crossguns-logo.png" alt="CrossGuns Snooker League" width="281" height="445">
       </a>
+      
+      <button type="button" class="help-toggle" data-help-toggle aria-pressed="false" aria-label="Help: tap, then tap a control" title="Help">?</button>
       <nav class="navbar js-navbar">
-        <button class="navbar__toggle js-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+        <button class="navbar__toggle js-toggle" data-help="chrome.menu" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
           <span class="navbar__toggle-box">
             <span class="navbar__toggle-inner">Menu</span>
           </span>
         </button>
         <ul class="navbar__menu">
-          <li class="active"><a href="index.html" target="_self">Home</a></li>
-          <li class="nav-item-standings"><a href="leagues.html" target="_self" class="nav-standings-link">Leagues</a></li>
-          <li><a href="fixtures.html" target="_self">Fixtures</a></li>
-          <li><a href="results.html" target="_self">Results</a></li>
-          <li><a href="top-breaks.html" target="_self">Top Breaks</a></li>
-          <li><a href="handicaps.html" target="_self">Handicaps</a></li>
-          <li><a href="rules.html" target="_self">Rules</a></li>
+          <li class="active"><a data-help="chrome.navHome" href="index.html" target="_self">Home</a></li>
+          <li class="nav-item-standings"><a data-help="chrome.navLeagues" href="leagues.html" target="_self" class="nav-standings-link">Leagues</a></li>
+          <li><a data-help="chrome.navFixtures" href="fixtures.html" target="_self">Fixtures</a></li>
+          <li><a data-help="chrome.navResults" href="results.html" target="_self">Results</a></li>
+          <li><a data-help="chrome.navBreaks" href="top-breaks.html" target="_self">Top Breaks</a></li>
+          <li><a data-help="chrome.navHandicaps" href="handicaps.html" target="_self">Handicaps</a></li>
+          <li><a data-help="chrome.navRules" href="rules.html" target="_self">Rules</a></li>
           <li class="nav-account-signed-out">
-            <button type="button" class="nav-account-connect">Connect</button>
+            <button type="button" class="nav-account-connect" data-help="chrome.connect">Connect</button>
           </li>
           <li class="nav-account-signed-in" hidden>
-            <span class="nav-account-who"></span>
+            <span class="nav-account-who" data-help="chrome.account"></span>
           </li>
           <li class="nav-account-signed-in" hidden>
-            <button type="button" class="nav-account-signout">Sign out</button>
+            <button type="button" class="nav-account-signout" data-help="chrome.signOut">Sign out</button>
           </li>
-          <li><button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-accounts.html" target="_self">Accounts</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
+          <li><button type="button" class="nav-admin-toggle" data-help="chrome.adminToggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navManageComps" href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navManagePlayers" href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navManageFixtures" href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navAccounts" href="admin-accounts.html" target="_self">Accounts</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navBulkPlayers" href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a data-help="chrome.navBulkFixtures" href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
         </ul>
       </nav>
     </header>
@@ -108,13 +112,13 @@
           </figure>
         </div>
         <div class="entry-wrapper content__entry">
-          <div id="home-carousel" class="home-carousel" aria-label="Current competitions">
+          <div id="home-carousel" class="home-carousel" aria-label="Current competitions" data-help="home.carousel">
             <div class="home-carousel__comp-header">
-              <button type="button" class="home-carousel__arrow home-carousel__arrow--prev is-unavailable" id="home-carousel-prev" aria-label="Previous competition" disabled aria-hidden="true">
+              <button type="button" class="home-carousel__arrow home-carousel__arrow--prev is-unavailable" id="home-carousel-prev" aria-label="Previous competition" disabled aria-hidden="true" data-help="home.prev">
                 <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 6L8 12L14 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
-              <h2 id="home-carousel-comp-title" class="home-carousel__comp-title align-center">Loading…</h2>
-              <button type="button" class="home-carousel__arrow home-carousel__arrow--next is-unavailable" id="home-carousel-next" aria-label="Next competition" disabled aria-hidden="true">
+              <h2 id="home-carousel-comp-title" class="home-carousel__comp-title align-center" data-help="home.title">Loading…</h2>
+              <button type="button" class="home-carousel__arrow home-carousel__arrow--next is-unavailable" id="home-carousel-next" aria-label="Next competition" disabled aria-hidden="true" data-help="home.next">
                 <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6L16 12L10 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
               </button>
             </div>
@@ -131,16 +135,15 @@
       <div class="wrapper">
         <nav class="footer__nav">
           <ul>
-            <li><a href="leagues.html" class="al footer-standings-link" target="_self">Leagues</a></li>
-            <li><a href="fixtures.html" class="al" target="_self">Fixtures</a></li>
-            <li><a href="results.html" class="al" target="_self">Results</a></li>
+            <li><a data-help="chrome.navLeagues" href="leagues.html" class="al footer-standings-link" target="_self">Leagues</a></li>
+            <li><a data-help="chrome.navFixtures" href="fixtures.html" class="al" target="_self">Fixtures</a></li>
+            <li><a data-help="chrome.navResults" href="results.html" class="al" target="_self">Results</a></li>
           </ul>
         </nav>
         <div class="footer__copyright">
           <p><span style="color: #169179;">by JP</span></p>
         </div>
-        <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top">
-          <svg width="20" height="20" viewBox="0 0 24 24">
+        <button id="backToTop" class="footer__bttop" aria-label="Back to top" title="Back to top" data-help="chrome.backToTop"><svg width="20" height="20" viewBox="0 0 24 24">
             <path d="M8 6L12 2L16 6" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
             <path d="M12 2V22" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" />
           </svg>

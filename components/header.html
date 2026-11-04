@@ -4,50 +4,68 @@
   Synchronise across pages whenever this file is edited.
 -->
 <header class="top js-header">
-  <a class="logo" href="index.html">
+  <a class="logo" href="index.html" data-help="chrome.logo">
     <img src="assets/images/crossguns-logo.png" alt="CrossGuns Snooker League" width="281" height="445">
   </a>
+  <button type="button" class="help-toggle" data-help-toggle aria-pressed="false" aria-label="Help: tap, then tap a control" title="Help">?</button>
   <nav class="navbar js-navbar">
-    <button class="navbar__toggle js-toggle" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
+    <button class="navbar__toggle js-toggle" data-help="chrome.menu" aria-label="Menu" aria-haspopup="true" aria-expanded="false">
       <span class="navbar__toggle-box">
         <span class="navbar__toggle-inner">Menu</span>
       </span>
     </button>
     <ul class="navbar__menu">
       <li>
-        <a href="index.html" target="_self">Home</a>
+        <a data-help="chrome.navHome" href="index.html" target="_self">Home</a>
       </li>
       <li>
-        <a href="leagues.html" target="_self">Leagues</a>
+        <a data-help="chrome.navLeagues" href="leagues.html" target="_self">Leagues</a>
       </li>
       <li>
-        <a href="fixtures.html" target="_self">Fixtures</a>
+        <a data-help="chrome.navFixtures" href="fixtures.html" target="_self">Fixtures</a>
       </li>
       <li>
-        <a href="results.html" target="_self">Results</a>
+        <a data-help="chrome.navResults" href="results.html" target="_self">Results</a>
       </li>
       <li>
-        <a href="top-breaks.html" target="_self">Top Breaks</a>
+        <a data-help="chrome.navBreaks" href="top-breaks.html" target="_self">Top Breaks</a>
       </li>
       <li>
-        <a href="handicaps.html" target="_self">Handicaps</a>
+        <a data-help="chrome.navHandicaps" href="handicaps.html" target="_self">Handicaps</a>
       </li>
       <li>
-        <a href="rules.html" target="_self">Rules</a>
+        <a data-help="chrome.navRules" href="rules.html" target="_self">Rules</a>
       </li>
       <li class="nav-account-signed-out">
-        <button type="button" class="nav-account-connect">Connect</button>
+        <button type="button" class="nav-account-connect" data-help="chrome.connect">Connect</button>
       </li>
       <li class="nav-account-signed-in" hidden>
-        <span class="nav-account-who"></span>
+        <span class="nav-account-who" data-help="chrome.account"></span>
       </li>
       <li class="nav-account-signed-in" hidden>
-        <button type="button" class="nav-account-signout">Sign out</button>
+        <button type="button" class="nav-account-signout" data-help="chrome.signOut">Sign out</button>
       </li>
       <li>
-        <button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button>
+        <button type="button" class="nav-admin-toggle" data-help="chrome.adminToggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button>
       </li>
-      <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-accounts.html" target="_self">Accounts</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
+      <li class="nav-admin-only" hidden aria-hidden="true">
+        <a data-help="chrome.navManageComps" href="admin-competitions.html" target="_self">Manage Comps</a>
+      </li>
+      <li class="nav-admin-only" hidden aria-hidden="true">
+        <a data-help="chrome.navManagePlayers" href="admin-players.html" target="_self">Manage Players</a>
+      </li>
+      <li class="nav-admin-only" hidden aria-hidden="true">
+        <a data-help="chrome.navManageFixtures" href="admin-fixtures.html" target="_self">Manage Fixtures</a>
+      </li>
+      <li class="nav-admin-only" hidden aria-hidden="true">
+        <a data-help="chrome.navAccounts" href="admin-accounts.html" target="_self">Accounts</a>
+      </li>
+      <li class="nav-admin-only" hidden aria-hidden="true">
+        <a data-help="chrome.navBulkPlayers" href="admin-bulk-players.html" target="_self">Bulk Load Players</a>
+      </li>
+      <li class="nav-admin-only" hidden aria-hidden="true">
+        <a data-help="chrome.navBulkFixtures" href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a>
+      </li>
     </ul>
   </nav>
 </header>

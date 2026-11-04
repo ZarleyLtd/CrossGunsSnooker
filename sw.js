@@ -1,4 +1,4 @@
-var CACHE = 'crossguns-shell-v1';
+var CACHE = 'crossguns-shell-v2';
 var SHELL = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ var SHELL = [
   './manifest.json',
   './assets/css/style.css',
   './assets/css/brief-message.css',
+  './assets/css/contextual-help.css',
   './assets/css/home-carousel.css',
   './assets/icons/icon.svg',
   './assets/icons/icon-192.png',
@@ -30,6 +31,8 @@ var SHELL = [
   './assets/js/utils/brief-message.js',
   './assets/js/utils/league-group-filter.js',
   './assets/js/utils/image-compress.js',
+  './assets/js/utils/help-catalog.js',
+  './assets/js/components/contextual-help.js',
   './assets/js/components/result-slip-upload.js',
   './assets/js/components/league-standings.js',
   './assets/js/pages/index.js',

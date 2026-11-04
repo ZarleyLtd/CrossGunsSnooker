@@ -76,6 +76,7 @@ const LeaguesPage = {
     groups.forEach(function (g, idx) {
       const wrapper = document.createElement('div');
       wrapper.className = 'standings-wrapper';
+      wrapper.setAttribute('data-help', 'leagues.group');
 
       const heading = document.createElement('h2');
       heading.className = 'standings-heading';
@@ -96,6 +97,7 @@ const LeaguesPage = {
       if (rows.some(function (player) { return player && player.unapproved; })) {
         const note = document.createElement('p');
         note.className = 'standings-pending-note';
+        note.setAttribute('data-help', 'leagues.pending');
         note.textContent = '* some results are pending approval';
         wrapper.appendChild(note);
       }
