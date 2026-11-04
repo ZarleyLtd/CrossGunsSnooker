@@ -3,11 +3,16 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#D73A42" />
+    <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
+    <link rel="manifest" href="manifest.json" />
     <title>Under Development - CrossGuns Snooker League</title>
     <link rel="icon" type="image/png" sizes="32x32" href="assets/images/favicon-32.png" />
     <link rel="stylesheet" href="assets/css/style.css" />
     <script src="assets/js/config/app-config.js"></script>
     <script src="assets/js/utils/admin-mode.js"></script>
+    <script src="assets/js/utils/player-session.js"></script>
   </head>
   <body class="page-template">
     <header class="top js-header">
@@ -26,6 +31,15 @@
           <li><a href="top-breaks.html" target="_self">Top Breaks</a></li>
           <li><a href="handicaps.html" target="_self">Handicaps</a></li>
           <li><a href="rules.html" target="_self">Rules</a></li>
+          <li class="nav-account-signed-out">
+            <button type="button" class="nav-account-connect">Connect</button>
+          </li>
+          <li class="nav-account-signed-in" hidden>
+            <span class="nav-account-who"></span>
+          </li>
+          <li class="nav-account-signed-in" hidden>
+            <button type="button" class="nav-account-signout">Sign out</button>
+          </li>
           <li><button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button></li>
         </ul>
       </nav>

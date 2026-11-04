@@ -56,8 +56,8 @@ const ApiClient = {
   /**
    * Make a POST request to the backend API. Uses form-encoded body (simple CORS).
    * Sends adminToken from options.adminToken, or sessionStorage key crossgunsAdminToken,
-   * except for action adminLogin / verifyPasscode (no token attached).
-   * For score actions, falls back to the score-passcode session token when Admin is locked.
+   * except for action adminLogin (no token attached). Player sessionToken is sent from
+   * localStorage except for login/register/connect/reset.
    * @param {string} action
    * @param {Object} data
    * @param {{ adminToken?: string|null }} [options]
@@ -77,30 +77,30 @@ const ApiClient = {
 
       const payload = { action: action, data: data || {} };
       const opts = options || {};
-      const noTokenActions = { adminLogin: true, verifyPasscode: true };
-      const scoreActions = {
-        updateFixtureResult: true,
-        upsertBreak: true,
-        deleteBreak: true,
-        getResultSlip: true,
-        uploadResultSlip: true,
-        commitResultSlip: true,
-        discardResultSlipSession: true,
-        removeResultSlip: true,
-      };
       let token = opts.adminToken;
-      if (token === undefined && typeof sessionStorage !== 'undefined' && !noTokenActions[action]) {
+      if (token === undefined && typeof sessionStorage !== 'undefined' && action !== 'adminLogin') {
         token = sessionStorage.getItem('crossgunsAdminToken');
-        if ((!token || !String(token).trim()) && scoreActions[action]) {
-          token = sessionStorage.getItem('crossgunsScorePassToken');
-        }
       }
       if (typeof token === 'string') {
         token = token.trim();
         if (!token) token = null;
       }
-      if (token && !noTokenActions[action]) {
+      if (token && action !== 'adminLogin') {
         payload.adminToken = token;
+      }
+
+      var sessionSkip = {
+        adminLogin: true,
+        register: true,
+        connect: true,
+        resetPassword: true,
+      };
+      if (!sessionSkip[action] && typeof localStorage !== 'undefined') {
+        var sessionToken = opts.sessionToken;
+        if (sessionToken === undefined) sessionToken = localStorage.getItem('crossgunsSessionToken');
+        if (typeof sessionToken === 'string' && sessionToken.trim()) {
+          payload.sessionToken = sessionToken.trim();
+        }
       }
 
       const formData = new URLSearchParams();

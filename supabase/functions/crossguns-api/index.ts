@@ -22,19 +22,12 @@
 //
 // Authenticated POST (Content-Type: application/x-www-form-urlencoded,
 // body field `data` JSON):
-//   { "action": "...", "data": { ... }, "adminToken": "<HMAC token>" }
-// Env CROSSGUNS_ADMIN_SECRET required for admin. Actions:
-//   adminLogin (pin only), verifyPasscode (public; mints scorer token),
-//   getPasscodes / upsertPasscode / deletePasscode (admin),
-//   upsertPlayer, upsertSeasonPlayer, upsertHandicap,
-//   upsertSeason, upsertLeague, upsertFixture, updateFixtureResult,
-//   upsertBreak, deleteBreak, deleteFixture, deleteHandicap, deletePlayer,
-//   deleteSeason, deleteLeague, upsertSeasonGroup,
-//   getResultSlip, uploadResultSlip, commitResultSlip,
-//   discardResultSlipSession, removeResultSlip
-// Score entry (updateFixtureResult, upsertBreak, deleteBreak, result-slip
-// actions) accepts admin or scorer tokens; result_entered_by is set from the
-// token role/name.
+//   { "action": "...", "data": { ... }, "adminToken": "<HMAC token>", "sessionToken": "<player>" }
+// Env CROSSGUNS_ADMIN_SECRET required for PIN admin. Player accounts use
+// sessionToken. Score entry accepts admin PIN, an admin/approver account, or
+// a player in the match within 24 hours of result_posted_at.
+// result_approved is true for admin- and approver-entered scores, and false
+// until an admin/approver approves a player-entered score.
 //
 // Standings ordering = the full CrossGuns tiebreak chain:
 //   1. points desc
@@ -47,6 +40,23 @@
 import postgres from "https://deno.land/x/postgresjs@v3.4.4/mod.js";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { decode as base64Decode } from "https://deno.land/std@0.208.0/encoding/base64.ts";
+import {
+  ApiError,
+  connectAccount,
+  disableAccount,
+  issueInvite,
+  listAccounts,
+  listInvites,
+  readPlayerSession,
+  registerAccount,
+  resetAccountPassword,
+  revokeInvite,
+  setAccountAdmin,
+  setAccountApprover,
+  signOutAccount,
+  whoAmIAccount,
+  withinResultWindow,
+} from "./accounts.ts";
 
 /** Private Storage bucket for result-slip photos (signed URLs only). */
 const RESULT_SLIP_BUCKET = "crossguns-result-slips";
@@ -205,17 +215,11 @@ type FixtureRow = {
   sort_order: number;
   best_of: number;
   result_entered_by: string | null;
+  result_approved: boolean;
+  result_approved_by?: string | null;
+  result_approved_at?: string | Date | null;
+  result_posted_at?: string | Date | null;
 };
-type PasscodeRow = {
-  passcode_id: string;
-  passcode_name: string;
-  passcode_code: string;
-  active: boolean;
-};
-type TokenRole = "admin" | "scorer";
-type TokenInfo =
-  | { ok: true; role: TokenRole; name: string }
-  | { ok: false };
 type StandingRow = {
   season_id: string;
   league_id: string;
@@ -614,11 +618,13 @@ async function handleGetPlayers(req: Request): Promise<Response> {
       player_name: string;
       season_count: number;
       match_count: number;
+      claimed: boolean;
     }[]>`
       select p.player_id,
              p.player_name,
              coalesce(sc.season_count, 0)::int as season_count,
-             coalesce(mc.match_count, 0)::int as match_count
+             coalesce(mc.match_count, 0)::int as match_count,
+             exists(select 1 from crossguns.accounts a where a.player_id = p.player_id) as claimed
         from crossguns.players p
         left join lateral (
           select count(*)::int as season_count
@@ -649,11 +655,13 @@ async function handleGetPlayers(req: Request): Promise<Response> {
         player_name: string;
         season_count: number;
         match_count: number;
+        claimed: boolean;
       }>).map((p) => ({
         playerId: p.player_id,
         playerName: p.player_name,
         seasonCount: p.season_count,
         matchCount: p.match_count,
+        claimed: p.claimed === true || p.claimed === "t" || p.claimed === "true",
       })),
     });
   }
@@ -692,7 +700,8 @@ async function handleGetFixtures(req: Request): Promise<Response> {
       select fixture_id, season_id, league_id, stage, round_label,
              player_a_id, player_b_id,
              to_char(match_date, 'YYYY-MM-DD') as match_date,
-             score_a, score_b, sort_order, best_of, result_entered_by
+             score_a, score_b, sort_order, best_of, result_entered_by,
+             result_approved, result_approved_by, result_approved_at, result_posted_at
       from crossguns.fixtures
       where season_id = ${seasonId}
       order by sort_order asc, round_label asc
@@ -728,6 +737,20 @@ async function handleGetFixtures(req: Request): Promise<Response> {
       playerAId: r.player_a_id,
       playerBId: r.player_b_id,
       resultEnteredBy: r.result_entered_by ?? "",
+      resultApproved: r.score_a == null || r.score_b == null ? true : r.result_approved !== false,
+      resultApprovedBy: r.result_approved && r.result_approved_by ? r.result_approved_by : "",
+      resultApprovedAt: r.result_approved && r.result_approved_at
+        ? (() => {
+          const approvedAt = new Date(r.result_approved_at as string | Date);
+          return Number.isFinite(approvedAt.getTime()) ? approvedAt.toISOString() : null;
+        })()
+        : null,
+      resultPostedAt: r.result_posted_at
+        ? (() => {
+          const posted = new Date(r.result_posted_at as string | Date);
+          return Number.isFinite(posted.getTime()) ? posted.toISOString() : null;
+        })()
+        : null,
     };
   });
 
@@ -740,7 +763,7 @@ async function handleGetStandings(req: Request): Promise<Response> {
   const seasonId = await resolveSeasonId(seasonParam);
 
   const sql = db();
-  const [players, leagues, members, standings, h2h, maxBreaks] = await Promise.all([
+  const [players, leagues, members, standings, h2h, maxBreaks, unapproved] = await Promise.all([
     loadAllPlayers(),
     loadSeasonGroups(seasonId),
     sql<SeasonPlayerRow[]>`
@@ -765,6 +788,15 @@ async function handleGetStandings(req: Request): Promise<Response> {
       from crossguns.max_adjusted_break_v
       where season_id = ${seasonId}
     `,
+    sql<{ league_id: string | null; player_a_id: string; player_b_id: string }[]>`
+      select league_id, player_a_id, player_b_id
+      from crossguns.fixtures
+      where season_id = ${seasonId}
+        and stage = 'league'
+        and result_approved = false
+        and score_a is not null
+        and score_b is not null
+    `,
   ]);
   const playerMap = buildPlayerMap(players);
   const standingsMap = new Map<string, StandingRow>();
@@ -785,6 +817,12 @@ async function handleGetStandings(req: Request): Promise<Response> {
   }
 
   const h2hAll = h2h as unknown as HeadToHeadRow[];
+  const unapprovedPlayers = new Set<string>();
+  for (const fx of unapproved as unknown as { league_id: string | null; player_a_id: string; player_b_id: string }[]) {
+    const lid = fx.league_id ?? "";
+    if (fx.player_a_id) unapprovedPlayers.add(`${lid}|${fx.player_a_id}`);
+    if (fx.player_b_id) unapprovedPlayers.add(`${lid}|${fx.player_b_id}`);
+  }
 
   const leaguesOut = (leagues as LeagueRow[]).map((lg) => {
     const memberRows = membersByLeague.get(lg.league_id) ?? [];
@@ -819,6 +857,7 @@ async function handleGetStandings(req: Request): Promise<Response> {
       D: r.drawn,
       "+/-": r.frameDiff,
       Pts: r.points,
+      unapproved: unapprovedPlayers.has(`${lg.league_id}|${r.playerId}`),
     }));
     return { leagueId: lg.league_id, groupId: lg.league_id, name: lg.name, rows };
   }).filter((lg) => lg.rows.length > 0);
@@ -1218,33 +1257,44 @@ type PostEnvelope = {
   action: string;
   data: Record<string, unknown>;
   adminToken?: string;
+  sessionToken?: string;
 };
 
 const ADMIN_TOKEN_TTL_SEC = 24 * 60 * 60;
 
-const SCORE_POST_ACTIONS = new Set([
-  "updateFixtureResult",
-  "upsertBreak",
-  "deleteBreak",
-  "getResultSlip",
-  "uploadResultSlip",
-  "commitResultSlip",
-  "discardResultSlipSession",
-  "removeResultSlip",
-]);
-
 const ADMIN_POST_ACTIONS = new Set([
   "adminLogin",
-  "verifyPasscode",
-  "getPasscodes",
-  "upsertPasscode",
-  "deletePasscode",
   "upsertPlayer",
   "upsertSeasonPlayer",
   "upsertHandicap",
   "upsertSeason",
   "upsertLeague",
   "upsertFixture",
+  "deleteFixture",
+  "deleteHandicap",
+  "deletePlayer",
+  "deleteSeason",
+  "deleteLeague",
+  "upsertSeasonGroup",
+  "approveFixtureResult",
+  "issueInvite",
+  "listInvites",
+  "revokeInvite",
+  "listAccounts",
+  "disableAccount",
+  "setAccountAdmin",
+  "setAccountApprover",
+]);
+
+const PUBLIC_POST_ACTIONS = new Set([
+  "register",
+  "connect",
+  "resetPassword",
+  "signOut",
+  "whoAmI",
+]);
+
+const PLAYER_RESULT_ACTIONS = new Set([
   "updateFixtureResult",
   "upsertBreak",
   "deleteBreak",
@@ -1253,18 +1303,7 @@ const ADMIN_POST_ACTIONS = new Set([
   "commitResultSlip",
   "discardResultSlipSession",
   "removeResultSlip",
-  "deleteFixture",
-  "deleteHandicap",
-  "deletePlayer",
-  "deleteSeason",
-  "deleteLeague",
-  "upsertSeasonGroup",
 ]);
-
-/** Simple in-memory rate limit for verifyPasscode (per isolate). */
-const VERIFY_PASSCODE_WINDOW_MS = 60_000;
-const VERIFY_PASSCODE_MAX = 20;
-const verifyPasscodeHits = new Map<string, { count: number; resetAt: number }>();
 
 function getAdminSecret(): string {
   return (Deno.env.get("CROSSGUNS_ADMIN_SECRET") ?? "").trim();
@@ -1314,16 +1353,11 @@ async function signAdminPayload(secret: string, payloadB64: string): Promise<str
   return base64UrlEncode(new Uint8Array(sig));
 }
 
-async function mintToken(
-  role: TokenRole,
-  name = "",
-): Promise<{ token: string; expiresAt: string }> {
+async function mintAdminToken(): Promise<{ token: string; expiresAt: string }> {
   const secret = getAdminSecret();
   if (!secret) throw new Error("Admin login unavailable");
   const exp = Math.floor(Date.now() / 1000) + ADMIN_TOKEN_TTL_SEC;
-  const payload = JSON.stringify(
-    role === "scorer" ? { exp, role, name } : { exp, role: "admin" },
-  );
+  const payload = JSON.stringify({ exp, role: "admin" });
   const payloadB64 = base64UrlEncode(new TextEncoder().encode(payload));
   const sig = await signAdminPayload(secret, payloadB64);
   return {
@@ -1332,48 +1366,27 @@ async function mintToken(
   };
 }
 
-async function mintAdminToken(): Promise<{ token: string; expiresAt: string }> {
-  return mintToken("admin");
-}
-
-async function verifyToken(token: string | undefined): Promise<TokenInfo> {
+async function verifyAdminToken(token: string | undefined): Promise<boolean> {
   const secret = getAdminSecret();
-  if (!secret || !token) return { ok: false };
+  if (!secret || !token) return false;
   const parts = token.split(".");
-  if (parts.length !== 2) return { ok: false };
+  if (parts.length !== 2) return false;
   const payloadB64 = parts[0]!;
   const sigB64 = parts[1]!;
   try {
     const expectedSigB64 = await signAdminPayload(secret, payloadB64);
     const expectedBytes = base64UrlDecode(expectedSigB64);
     const actualBytes = base64UrlDecode(sigB64);
-    if (!timingSafeEqualBytes(expectedBytes, actualBytes)) return { ok: false };
+    if (!timingSafeEqualBytes(expectedBytes, actualBytes)) return false;
     const payloadJson = new TextDecoder().decode(base64UrlDecode(payloadB64));
-    const payload = JSON.parse(payloadJson) as {
-      exp?: number;
-      role?: string;
-      name?: string;
-    };
+    const payload = JSON.parse(payloadJson) as { exp?: number; role?: string };
     const exp = Number(payload.exp);
-    if (!Number.isFinite(exp) || exp <= Math.floor(Date.now() / 1000)) {
-      return { ok: false };
-    }
-    // Legacy tokens (no role) are treated as admin.
+    if (!Number.isFinite(exp) || exp <= Math.floor(Date.now() / 1000)) return false;
     const roleRaw = String(payload.role ?? "admin");
-    if (roleRaw === "scorer") {
-      const name = String(payload.name ?? "").trim();
-      if (!name) return { ok: false };
-      return { ok: true, role: "scorer", name };
-    }
-    return { ok: true, role: "admin", name: "Admin" };
+    return roleRaw !== "scorer";
   } catch {
-    return { ok: false };
+    return false;
   }
-}
-
-function enteredByFromToken(info: Extract<TokenInfo, { ok: true }>): string {
-  if (info.role === "scorer") return info.name;
-  return "Admin";
 }
 
 async function parsePostEnvelope(req: Request): Promise<PostEnvelope | null> {
@@ -1389,7 +1402,8 @@ async function parsePostEnvelope(req: Request): Promise<PostEnvelope | null> {
       ? rawData as Record<string, unknown>
       : {};
     const adminToken = typeof parsed.adminToken === "string" ? parsed.adminToken : undefined;
-    return { action, data, adminToken };
+    const sessionToken = typeof parsed.sessionToken === "string" ? parsed.sessionToken : undefined;
+    return { action, data, adminToken, sessionToken };
   } catch {
     return null;
   }
@@ -1398,59 +1412,36 @@ async function parsePostEnvelope(req: Request): Promise<PostEnvelope | null> {
 async function requireAdmin(envelope: PostEnvelope): Promise<Response | null> {
   const raw = envelope.adminToken;
   const token = typeof raw === "string" ? raw.trim() : "";
-  if (!token) {
+  if (token && (await verifyAdminToken(token))) return null;
+  const session = typeof envelope.sessionToken === "string" ? envelope.sessionToken.trim() : "";
+  if (session) {
+    const actor = await readPlayerSession(db(), session);
+    if (actor?.isAdmin) return null;
+  }
+  if (!token && !session) {
     return unauthorizedResponse(
       "Missing admin token. Unlock Admin Mode from the site menu, then try again.",
     );
   }
-  const info = await verifyToken(token);
-  if (info.ok && info.role === "admin") return null;
   return unauthorizedResponse(
     "Invalid or expired admin session. Unlock Admin Mode again from the menu.",
   );
 }
 
-async function requireAdminOrScorer(
-  envelope: PostEnvelope,
-): Promise<{ denied: Response } | { denied: null; token: Extract<TokenInfo, { ok: true }> }> {
+/** Admin PIN, an admin account, or an approver account. */
+async function requireScoreApprover(envelope: PostEnvelope): Promise<Response | null> {
   const raw = envelope.adminToken;
   const token = typeof raw === "string" ? raw.trim() : "";
-  if (!token) {
-    return {
-      denied: unauthorizedResponse(
-        "Missing auth token. Unlock Admin Mode or enter a passcode, then try again.",
-      ),
-    };
+  if (token && (await verifyAdminToken(token))) return null;
+  const session = typeof envelope.sessionToken === "string" ? envelope.sessionToken.trim() : "";
+  if (session) {
+    const actor = await readPlayerSession(db(), session);
+    if (actor?.isAdmin || actor?.isApprover) return null;
   }
-  const info = await verifyToken(token);
-  if (info.ok && (info.role === "admin" || info.role === "scorer")) {
-    return { denied: null, token: info };
+  if (!token && !session) {
+    return unauthorizedResponse("Sign in as an approver, or unlock Admin Mode.");
   }
-  return {
-    denied: unauthorizedResponse(
-      "Invalid or expired session. Unlock Admin Mode or enter a passcode again.",
-    ),
-  };
-}
-
-function clientIp(req: Request): string {
-  return (
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    req.headers.get("cf-connecting-ip") ||
-    "unknown"
-  );
-}
-
-function allowVerifyPasscode(ip: string): boolean {
-  const now = Date.now();
-  const row = verifyPasscodeHits.get(ip);
-  if (!row || now >= row.resetAt) {
-    verifyPasscodeHits.set(ip, { count: 1, resetAt: now + VERIFY_PASSCODE_WINDOW_MS });
-    return true;
-  }
-  if (row.count >= VERIFY_PASSCODE_MAX) return false;
-  row.count += 1;
-  return true;
+  return unauthorizedResponse("This score can only be approved by an approver or an admin.");
 }
 
 async function handleAdminLogin(data: Record<string, unknown>): Promise<Response> {
@@ -1460,95 +1451,6 @@ async function handleAdminLogin(data: Record<string, unknown>): Promise<Response
   if (!timingSafeEqualStr(pin, secret)) return unauthorizedResponse("Invalid PIN");
   const { token, expiresAt } = await mintAdminToken();
   return jsonResponse({ success: true, token, expiresAt });
-}
-
-async function handleVerifyPasscode(
-  data: Record<string, unknown>,
-  req: Request,
-): Promise<Response> {
-  const secret = getAdminSecret();
-  if (!secret) return errorResponse("Passcode login not configured", 503);
-  const ip = clientIp(req);
-  if (!allowVerifyPasscode(ip)) {
-    return errorResponse("Too many passcode attempts. Try again in a minute.", 429);
-  }
-  const code = String(data.code ?? data.passcode ?? "").trim();
-  if (!code) return unauthorizedResponse("Passcode required");
-
-  const sql = db();
-  const rows = await sql<PasscodeRow[]>`
-    select passcode_id, passcode_name, passcode_code, active
-    from crossguns.passcodes
-    where active = true
-      and lower(trim(passcode_code)) = lower(trim(${code}))
-    limit 1
-  `;
-  const row = rows[0];
-  if (!row) return unauthorizedResponse("Invalid passcode");
-
-  const { token, expiresAt } = await mintToken("scorer", row.passcode_name);
-  return jsonResponse({
-    success: true,
-    token,
-    expiresAt,
-    passcodeName: row.passcode_name,
-  });
-}
-
-async function handleGetPasscodes(): Promise<Response> {
-  const sql = db();
-  const rows = await sql<PasscodeRow[]>`
-    select passcode_id, passcode_name, passcode_code, active
-    from crossguns.passcodes
-    order by lower(passcode_name) asc
-  `;
-  const passcodes = rows.map((r) => ({
-    passcodeId: r.passcode_id,
-    passcodeName: r.passcode_name,
-    passcodeCode: r.passcode_code,
-    active: r.active,
-  }));
-  return jsonResponse({ success: true, passcodes });
-}
-
-async function handleUpsertPasscode(data: Record<string, unknown>): Promise<Response> {
-  const passcodeId = String(data.passcodeId ?? "").trim();
-  const passcodeName = String(data.passcodeName ?? "").trim();
-  const passcodeCode = String(data.passcodeCode ?? "").trim();
-  if (!passcodeId || !passcodeName || !passcodeCode) {
-    return errorResponse("passcodeId, passcodeName and passcodeCode required");
-  }
-  const active = data.active === undefined ? true : Boolean(data.active);
-  const sql = db();
-  try {
-    await sql`
-      insert into crossguns.passcodes (
-        passcode_id, passcode_name, passcode_code, active, updated_at
-      ) values (
-        ${passcodeId}, ${passcodeName}, ${passcodeCode}, ${active}, now()
-      )
-      on conflict (passcode_id) do update set
-        passcode_name = excluded.passcode_name,
-        passcode_code = excluded.passcode_code,
-        active = excluded.active,
-        updated_at = now()
-    `;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (/unique|duplicate/i.test(message)) {
-      return errorResponse("Passcode name or code already exists", 409);
-    }
-    throw err;
-  }
-  return jsonResponse({ success: true });
-}
-
-async function handleDeletePasscode(data: Record<string, unknown>): Promise<Response> {
-  const passcodeId = String(data.passcodeId ?? "").trim();
-  if (!passcodeId) return errorResponse("passcodeId required");
-  const sql = db();
-  await sql`delete from crossguns.passcodes where passcode_id = ${passcodeId}`;
-  return jsonResponse({ success: true });
 }
 
 async function handleUpsertPlayer(data: Record<string, unknown>): Promise<Response> {
@@ -1898,6 +1800,11 @@ async function handleUpsertFixture(data: Record<string, unknown>): Promise<Respo
         score_b = ${sb},
         sort_order = ${so},
         best_of = ${bestOf},
+        result_posted_at = case
+          when ${sa !== null && sb !== null} then coalesce(result_posted_at, now())
+          when ${sa === null && sb === null} then null
+          else result_posted_at
+        end,
         updated_at = now()
       where fixture_id = ${fixtureId}::uuid
     `;
@@ -1907,19 +1814,120 @@ async function handleUpsertFixture(data: Record<string, unknown>): Promise<Respo
   await sql`
     insert into crossguns.fixtures (
       season_id, league_id, stage, round_label,
-      player_a_id, player_b_id, match_date, score_a, score_b, sort_order, best_of
+      player_a_id, player_b_id, match_date, score_a, score_b, sort_order, best_of, result_posted_at
     ) values (
       ${seasonId}, ${leagueId}, ${stage}, ${roundLabel},
-      ${playerAId}, ${playerBId}, ${matchDate}, ${sa}, ${sb}, ${so}, ${bestOf}
+      ${playerAId}, ${playerBId}, ${matchDate}, ${sa}, ${sb}, ${so}, ${bestOf},
+      case
+        when ${sa !== null && sb !== null} then now()
+        else null
+      end
     )
   `;
   return jsonResponse({ success: true });
 }
 
-async function handleUpdateFixtureResult(
-  data: Record<string, unknown>,
-  enteredBy: string,
-): Promise<Response> {
+async function requireResultEditor(
+  envelope: PostEnvelope,
+  fixtureId: string,
+): Promise<Response | {
+  admin: boolean;
+  playerAId: string;
+  playerBId: string;
+  editorPlayerId: string | null;
+}> {
+  const sql = db();
+  const rows = await sql<{
+    fixture_id: string;
+    player_a_id: string;
+    player_b_id: string;
+    result_posted_at: string | Date | null;
+  }[]>`
+    select fixture_id, player_a_id, player_b_id, result_posted_at
+    from crossguns.fixtures
+    where fixture_id = ${fixtureId}::uuid
+  `;
+  const fixture = rows[0];
+  if (!fixture) return errorResponse("Fixture not found", 404);
+
+  const adminToken = typeof envelope.adminToken === "string" ? envelope.adminToken.trim() : "";
+  if (adminToken && await verifyAdminToken(adminToken)) {
+    return {
+      admin: true,
+      playerAId: fixture.player_a_id,
+      playerBId: fixture.player_b_id,
+      editorPlayerId: null,
+    };
+  }
+
+  const player = await readPlayerSession(sql, envelope.sessionToken);
+  if (!player) {
+    if (adminToken) {
+      return unauthorizedResponse(
+        "Invalid or expired admin session. Unlock Admin Mode again from the menu.",
+      );
+    }
+    return unauthorizedResponse("Sign in as a player in this match, or unlock Admin Mode.");
+  }
+  if (player.isAdmin || player.isApprover) {
+    return {
+      admin: false,
+      playerAId: fixture.player_a_id,
+      playerBId: fixture.player_b_id,
+      editorPlayerId: player.playerId,
+    };
+  }
+  if (player.playerId !== fixture.player_a_id && player.playerId !== fixture.player_b_id) {
+    return errorResponse("You can only report results for your own matches.", 403);
+  }
+  if (!withinResultWindow(fixture.result_posted_at)) {
+    return errorResponse(
+      "This result is locked. Only an admin or an approver can change it after 24 hours.",
+      403,
+    );
+  }
+  return {
+    admin: false,
+    playerAId: fixture.player_a_id,
+    playerBId: fixture.player_b_id,
+    editorPlayerId: player.playerId,
+  };
+}
+
+async function resultEnteredByLabel(
+  editorPlayerId: string | null,
+  admin: boolean,
+  sessionToken: string | undefined,
+): Promise<string> {
+  if (admin || !editorPlayerId) return "Admin";
+  const sql = db();
+  const rows = await sql<{ player_name: string }[]>`
+    select player_name from crossguns.players where player_id = ${editorPlayerId}
+  `;
+  const name = String(rows[0]?.player_name || "").trim();
+  if (name) return name;
+  const actor = await readPlayerSession(sql, sessionToken);
+  return actor?.handle || "Player";
+}
+
+async function resultApprovedByLabel(envelope: PostEnvelope): Promise<string> {
+  const session = typeof envelope.sessionToken === "string" ? envelope.sessionToken.trim() : "";
+  if (session) {
+    const actor = await readPlayerSession(db(), session);
+    if (actor && (actor.isAdmin || actor.isApprover) && actor.playerId) {
+      const rows = await db()<{ player_name: string }[]>`
+        select player_name from crossguns.players where player_id = ${actor.playerId}
+      `;
+      const name = String(rows[0]?.player_name || "").trim();
+      if (name) return name;
+      if (actor.handle) return actor.handle;
+    }
+  }
+  return "Admin";
+}
+
+async function handleUpdateFixtureResult(envelope: PostEnvelope): Promise<Response> {
+  const data = envelope.data;
   const fixtureId = String(data.fixtureId ?? "").trim();
   if (!fixtureId) return errorResponse("fixtureId required");
   const scoreA = parseNullableScore(data.scoreA);
@@ -1932,6 +1940,9 @@ async function handleUpdateFixtureResult(
   if (rawB !== undefined && rawB !== null && rawB !== "" && scoreB === null) {
     return errorResponse("Invalid scoreB");
   }
+  const gate = await requireResultEditor(envelope, fixtureId);
+  if (gate instanceof Response) return gate;
+
   const hasMatchDate = Object.prototype.hasOwnProperty.call(data, "matchDate");
   let matchDateVal: string | null | undefined;
   if (hasMatchDate) {
@@ -1939,39 +1950,134 @@ async function handleUpdateFixtureResult(
     if (md === null || md === "") matchDateVal = null;
     else matchDateVal = String(md).trim();
   }
-  const by = String(enteredBy || "").trim() || "Admin";
-  const clearing = scoreA === null && scoreB === null;
 
+  const sa = scoreA === null ? null : Math.trunc(scoreA);
+  const sb = scoreB === null ? null : Math.trunc(scoreB);
+  const clearing = sa === null && sb === null;
+  const enteredBy = await resultEnteredByLabel(
+    gate.editorPlayerId,
+    gate.admin,
+    envelope.sessionToken,
+  );
   const sql = db();
+  const actor = gate.admin ? null : await readPlayerSession(sql, envelope.sessionToken);
+  const privileged = gate.admin || !!actor?.isAdmin || !!actor?.isApprover;
+  const approved = clearing || privileged;
+  const priorRows = await sql<{
+    result_entered_by: string | null;
+    result_approved: boolean;
+    result_approved_by: string | null;
+  }[]>`
+    select result_entered_by, result_approved, result_approved_by
+    from crossguns.fixtures
+    where fixture_id = ${fixtureId}::uuid
+  `;
+  const priorEntered = String(priorRows[0]?.result_entered_by || "").trim();
+  const priorByPlayer = priorEntered !== "" && priorEntered !== "Admin";
+  const subsequentApproval = approved && !clearing && priorByPlayer &&
+    priorRows[0]?.result_approved === false && privileged;
+  const preservePlayerEntry = approved && !clearing && priorByPlayer &&
+    priorRows[0]?.result_approved === true;
+  const keepExistingApproval = preservePlayerEntry &&
+    String(priorRows[0]?.result_approved_by || "").trim() !== "";
+  const enteredByToStore = subsequentApproval || preservePlayerEntry ? priorEntered : enteredBy;
+  const approvedBy = subsequentApproval ? await resultApprovedByLabel(envelope) : null;
   if (hasMatchDate) {
     await sql`
       update crossguns.fixtures
-      set score_a = ${scoreA === null ? null : Math.trunc(scoreA)},
-          score_b = ${scoreB === null ? null : Math.trunc(scoreB)},
+      set score_a = ${sa},
+          score_b = ${sb},
           match_date = ${matchDateVal},
-          result_entered_by = ${by},
+          result_entered_by = ${enteredByToStore},
+          result_approved = ${approved},
+          result_approved_by = case
+            when ${subsequentApproval} then ${approvedBy}
+            when ${keepExistingApproval} then result_approved_by
+            else null
+          end,
+          result_approved_at = case
+            when ${subsequentApproval} then now()
+            when ${keepExistingApproval} then result_approved_at
+            else null
+          end,
+          result_posted_at = case
+            when ${sa !== null && sb !== null} then coalesce(result_posted_at, now())
+            when ${sa === null && sb === null} then null
+            else result_posted_at
+          end,
           updated_at = now()
       where fixture_id = ${fixtureId}::uuid
     `;
   } else {
     await sql`
       update crossguns.fixtures
-      set score_a = ${scoreA === null ? null : Math.trunc(scoreA)},
-          score_b = ${scoreB === null ? null : Math.trunc(scoreB)},
-          result_entered_by = ${by},
+      set score_a = ${sa},
+          score_b = ${sb},
+          result_entered_by = ${enteredByToStore},
+          result_approved = ${approved},
+          result_approved_by = case
+            when ${subsequentApproval} then ${approvedBy}
+            when ${keepExistingApproval} then result_approved_by
+            else null
+          end,
+          result_approved_at = case
+            when ${subsequentApproval} then now()
+            when ${keepExistingApproval} then result_approved_at
+            else null
+          end,
+          result_posted_at = case
+            when ${sa !== null && sb !== null} then coalesce(result_posted_at, now())
+            when ${sa === null && sb === null} then null
+            else result_posted_at
+          end,
           updated_at = now()
       where fixture_id = ${fixtureId}::uuid
     `;
   }
-  if (clearing) {
-    await clearFixtureResultSlip(fixtureId);
-  }
-  return jsonResponse({ success: true });
+  if (clearing) await clearFixtureResultSlip(fixtureId);
+  return jsonResponse({ success: true, resultApproved: approved });
 }
 
-async function handleGetResultSlip(data: Record<string, unknown>): Promise<Response> {
-  const fixtureId = String(data.fixtureId ?? "").trim();
+async function handleApproveFixtureResult(envelope: PostEnvelope): Promise<Response> {
+  const fixtureId = String(envelope.data.fixtureId ?? "").trim();
   if (!fixtureId) return errorResponse("fixtureId required");
+  const sql = db();
+  const rows = await sql<{
+    score_a: number | null;
+    score_b: number | null;
+    result_entered_by: string | null;
+  }[]>`
+    select score_a, score_b, result_entered_by
+    from crossguns.fixtures
+    where fixture_id = ${fixtureId}::uuid
+  `;
+  const fixture = rows[0];
+  if (!fixture) return errorResponse("Fixture not found", 404);
+  if (fixture.score_a == null || fixture.score_b == null) {
+    return errorResponse("There is no score to approve");
+  }
+  const entered = String(fixture.result_entered_by || "").trim();
+  const byPlayer = entered !== "" && entered !== "Admin";
+  const approvedBy = byPlayer ? await resultApprovedByLabel(envelope) : null;
+  await sql`
+    update crossguns.fixtures
+    set result_approved = true,
+        result_approved_by = ${approvedBy},
+        result_approved_at = case when ${approvedBy !== null} then now() else result_approved_at end,
+        updated_at = now()
+    where fixture_id = ${fixtureId}::uuid
+  `;
+  return jsonResponse({ success: true, resultApproved: true });
+}
+
+async function handleGetResultSlip(envelope: PostEnvelope): Promise<Response> {
+  const fixtureId = String(envelope.data.fixtureId ?? "").trim();
+  if (!fixtureId) return errorResponse("fixtureId required");
+  const gate = await requireResultEditor(envelope, fixtureId);
+  if (gate instanceof Response) {
+    const approverDenied = await requireScoreApprover(envelope);
+    if (approverDenied) return gate;
+  }
   const sql = db();
   const rows = await sql<{ result_slip_path: string | null; result_slip_mime: string | null }[]>`
     select result_slip_path, result_slip_mime
@@ -1992,19 +2098,16 @@ async function handleGetResultSlip(data: Record<string, unknown>): Promise<Respo
   });
 }
 
-async function handleUploadResultSlip(data: Record<string, unknown>): Promise<Response> {
-  const fixtureId = String(data.fixtureId ?? "").trim();
+async function handleUploadResultSlip(envelope: PostEnvelope): Promise<Response> {
+  const fixtureId = String(envelope.data.fixtureId ?? "").trim();
   if (!fixtureId) return errorResponse("fixtureId required");
-  const payload = decodeImagePayload(data.base64 ?? data.imageBase64, data.mimeType ?? data.imageMimeType);
+  const gate = await requireResultEditor(envelope, fixtureId);
+  if (gate instanceof Response) return gate;
+  const payload = decodeImagePayload(
+    envelope.data.base64 ?? envelope.data.imageBase64,
+    envelope.data.mimeType ?? envelope.data.imageMimeType,
+  );
   if (!payload) return errorResponse("Image payload required");
-  const sql = db();
-  const exists = await sql<{ ok: boolean }[]>`
-    select exists(
-      select 1 from crossguns.fixtures where fixture_id = ${fixtureId}::uuid
-    ) as ok
-  `;
-  if (!Boolean(exists[0]?.ok)) return errorResponse("Fixture not found", 404);
-
   const path = resultSlipPendingPath(fixtureId);
   await uploadSlipBytes(path, payload.bytes, payload.mime);
   const imageUrl = await getSignedSlipUrl(path);
@@ -2017,9 +2120,11 @@ async function handleUploadResultSlip(data: Record<string, unknown>): Promise<Re
   });
 }
 
-async function handleCommitResultSlip(data: Record<string, unknown>): Promise<Response> {
-  const fixtureId = String(data.fixtureId ?? "").trim();
+async function handleCommitResultSlip(envelope: PostEnvelope): Promise<Response> {
+  const fixtureId = String(envelope.data.fixtureId ?? "").trim();
   if (!fixtureId) return errorResponse("fixtureId required");
+  const gate = await requireResultEditor(envelope, fixtureId);
+  if (gate instanceof Response) return gate;
   const pending = resultSlipPendingPath(fixtureId);
   const committed = resultSlipCommittedPath(fixtureId);
   const sb = storageClient();
@@ -2052,21 +2157,26 @@ async function handleCommitResultSlip(data: Record<string, unknown>): Promise<Re
   });
 }
 
-async function handleDiscardResultSlipSession(data: Record<string, unknown>): Promise<Response> {
-  const fixtureId = String(data.fixtureId ?? "").trim();
+async function handleDiscardResultSlipSession(envelope: PostEnvelope): Promise<Response> {
+  const fixtureId = String(envelope.data.fixtureId ?? "").trim();
   if (!fixtureId) return errorResponse("fixtureId required");
+  const gate = await requireResultEditor(envelope, fixtureId);
+  if (gate instanceof Response) return gate;
   await deleteSlipPaths([resultSlipPendingPath(fixtureId)]);
   return jsonResponse({ success: true });
 }
 
-async function handleRemoveResultSlip(data: Record<string, unknown>): Promise<Response> {
-  const fixtureId = String(data.fixtureId ?? "").trim();
+async function handleRemoveResultSlip(envelope: PostEnvelope): Promise<Response> {
+  const fixtureId = String(envelope.data.fixtureId ?? "").trim();
   if (!fixtureId) return errorResponse("fixtureId required");
+  const gate = await requireResultEditor(envelope, fixtureId);
+  if (gate instanceof Response) return gate;
   await clearFixtureResultSlip(fixtureId);
   return jsonResponse({ success: true });
 }
 
-async function handleUpsertBreak(data: Record<string, unknown>): Promise<Response> {
+async function handleUpsertBreak(envelope: PostEnvelope): Promise<Response> {
+  const data = envelope.data;
   const breakId = data.breakId ? String(data.breakId).trim() : "";
   const fixtureId = String(data.fixtureId ?? "").trim();
   const playerId = String(data.playerId ?? "").trim();
@@ -2075,8 +2185,22 @@ async function handleUpsertBreak(data: Record<string, unknown>): Promise<Respons
   if (!Number.isFinite(value)) return errorResponse("value must be a number");
   const vInt = Math.trunc(value);
   if (vInt < 1 || vInt > 155) return errorResponse("value must be 1..155");
+  const gate = await requireResultEditor(envelope, fixtureId);
+  if (gate instanceof Response) return gate;
+  if (!gate.admin && playerId !== gate.playerAId && playerId !== gate.playerBId) {
+    return errorResponse("Breaks on this match can only be recorded for the two players.", 403);
+  }
   const sql = db();
   if (breakId) {
+    if (!gate.admin) {
+      const existing = await sql<{ fixture_id: string }[]>`
+        select fixture_id from crossguns.breaks where break_id = ${breakId}::uuid
+      `;
+      if (!existing[0]) return errorResponse("Break not found", 404);
+      if (String(existing[0].fixture_id).toLowerCase() !== fixtureId.toLowerCase()) {
+        return errorResponse("You can only change breaks on your own match.", 403);
+      }
+    }
     await sql`
       update crossguns.breaks
       set fixture_id = ${fixtureId}::uuid,
@@ -2094,10 +2218,17 @@ async function handleUpsertBreak(data: Record<string, unknown>): Promise<Respons
   return jsonResponse({ success: true });
 }
 
-async function handleDeleteBreak(data: Record<string, unknown>): Promise<Response> {
+async function handleDeleteBreak(envelope: PostEnvelope): Promise<Response> {
+  const data = envelope.data;
   const breakId = String(data.breakId ?? "").trim();
   if (!breakId) return errorResponse("breakId required");
   const sql = db();
+  const existing = await sql<{ fixture_id: string }[]>`
+    select fixture_id from crossguns.breaks where break_id = ${breakId}::uuid
+  `;
+  if (!existing[0]) return errorResponse("Break not found", 404);
+  const gate = await requireResultEditor(envelope, String(existing[0].fixture_id));
+  if (gate instanceof Response) return gate;
   await sql`delete from crossguns.breaks where break_id = ${breakId}::uuid`;
   return jsonResponse({ success: true });
 }
@@ -2208,64 +2339,119 @@ async function handleDeleteLeague(data: Record<string, unknown>): Promise<Respon
   return jsonResponse({ success: true });
 }
 
-async function dispatchPost(envelope: PostEnvelope, req: Request): Promise<Response> {
-  if (!ADMIN_POST_ACTIONS.has(envelope.action)) {
-    return errorResponse(`Unknown action: ${envelope.action}`, 400);
+function accountResult(result: unknown): Response {
+  if (result && typeof result === "object" && "sessionToken" in (result as object)) {
+    const body = result as { sessionToken: string; account: unknown };
+    return jsonResponse({ success: true, sessionToken: body.sessionToken, account: body.account });
   }
+  if (result && typeof result === "object" && "handle" in (result as object) && "playerId" in (result as object)) {
+    return jsonResponse({ success: true, account: result });
+  }
+  return jsonResponse({ success: true, ...(result as object) });
+}
 
-  if (envelope.action === "adminLogin") {
-    return handleAdminLogin(envelope.data);
-  }
-  if (envelope.action === "verifyPasscode") {
-    return handleVerifyPasscode(envelope.data, req);
-  }
-
-  if (SCORE_POST_ACTIONS.has(envelope.action)) {
-    const auth = await requireAdminOrScorer(envelope);
-    if (auth.denied) return auth.denied;
+async function dispatchAccount(envelope: PostEnvelope, req: Request): Promise<Response> {
+  const sql = db();
+  try {
     switch (envelope.action) {
-      case "updateFixtureResult":
-        return handleUpdateFixtureResult(
-          envelope.data,
-          enteredByFromToken(auth.token),
-        );
-      case "upsertBreak":
-        return handleUpsertBreak(envelope.data);
-      case "deleteBreak":
-        return handleDeleteBreak(envelope.data);
-      case "getResultSlip":
-        return handleGetResultSlip(envelope.data);
-      case "uploadResultSlip":
-        return handleUploadResultSlip(envelope.data);
-      case "commitResultSlip":
-        return handleCommitResultSlip(envelope.data);
-      case "discardResultSlipSession":
-        return handleDiscardResultSlipSession(envelope.data);
-      case "removeResultSlip":
-        return handleRemoveResultSlip(envelope.data);
+      case "register":
+        return accountResult(await registerAccount(sql, req, envelope.data));
+      case "connect":
+        return accountResult(await connectAccount(sql, req, envelope.data));
+      case "resetPassword":
+        return accountResult(await resetAccountPassword(sql, req, envelope.data));
+      case "signOut":
+        return accountResult(await signOutAccount(sql, envelope.sessionToken));
+      case "whoAmI":
+        return accountResult(await whoAmIAccount(sql, envelope.sessionToken));
       default:
         return errorResponse(`Unknown action: ${envelope.action}`, 400);
     }
+  } catch (err) {
+    if (err instanceof ApiError) return errorResponse(err.message, err.status);
+    throw err;
   }
+}
 
-  const denied = await requireAdmin(envelope);
-  if (denied) return denied;
+async function dispatchAdminAccount(envelope: PostEnvelope): Promise<Response> {
+  const sql = db();
+  try {
+    switch (envelope.action) {
+      case "issueInvite":
+        return accountResult(await issueInvite(sql, envelope.data));
+      case "listInvites":
+        return jsonResponse({ success: true, invites: await listInvites(sql) });
+      case "revokeInvite":
+        return accountResult(await revokeInvite(sql, envelope.data));
+      case "listAccounts":
+        return jsonResponse({ success: true, accounts: await listAccounts(sql) });
+      case "disableAccount":
+        return accountResult(await disableAccount(sql, envelope.data));
+      case "setAccountAdmin":
+        return accountResult(await setAccountAdmin(sql, envelope.data));
+      case "setAccountApprover":
+        return accountResult(await setAccountApprover(sql, envelope.data));
+      default:
+        return errorResponse(`Unknown action: ${envelope.action}`, 400);
+    }
+  } catch (err) {
+    if (err instanceof ApiError) return errorResponse(err.message, err.status);
+    throw err;
+  }
+}
+
+async function dispatchPost(envelope: PostEnvelope, req: Request): Promise<Response> {
+  if (PUBLIC_POST_ACTIONS.has(envelope.action)) {
+    return dispatchAccount(envelope, req);
+  }
+  if (PLAYER_RESULT_ACTIONS.has(envelope.action)) {
+    switch (envelope.action) {
+      case "updateFixtureResult": return handleUpdateFixtureResult(envelope);
+      case "upsertBreak": return handleUpsertBreak(envelope);
+      case "deleteBreak": return handleDeleteBreak(envelope);
+      case "getResultSlip": return handleGetResultSlip(envelope);
+      case "uploadResultSlip": return handleUploadResultSlip(envelope);
+      case "commitResultSlip": return handleCommitResultSlip(envelope);
+      case "discardResultSlipSession": return handleDiscardResultSlipSession(envelope);
+      case "removeResultSlip": return handleRemoveResultSlip(envelope);
+      default: return errorResponse(`Unknown action: ${envelope.action}`, 400);
+    }
+  }
+  if (!ADMIN_POST_ACTIONS.has(envelope.action)) {
+    return errorResponse(`Unknown action: ${envelope.action}`, 400);
+  }
+  if (envelope.action !== "adminLogin") {
+    const denied = envelope.action === "approveFixtureResult"
+      ? await requireScoreApprover(envelope)
+      : await requireAdmin(envelope);
+    if (denied) return denied;
+  }
+  if (
+    envelope.action === "issueInvite" ||
+    envelope.action === "listInvites" ||
+    envelope.action === "revokeInvite" ||
+    envelope.action === "listAccounts" ||
+    envelope.action === "disableAccount" ||
+    envelope.action === "setAccountAdmin" ||
+    envelope.action === "setAccountApprover"
+  ) {
+    return dispatchAdminAccount(envelope);
+  }
   switch (envelope.action) {
-    case "getPasscodes":       return handleGetPasscodes();
-    case "upsertPasscode":     return handleUpsertPasscode(envelope.data);
-    case "deletePasscode":     return handleDeletePasscode(envelope.data);
-    case "upsertPlayer":       return handleUpsertPlayer(envelope.data);
+    case "adminLogin": return handleAdminLogin(envelope.data);
+    case "upsertPlayer": return handleUpsertPlayer(envelope.data);
     case "upsertSeasonPlayer": return handleUpsertSeasonPlayer(envelope.data);
-    case "upsertHandicap":     return handleUpsertHandicap(envelope.data);
-    case "upsertSeason":       return handleUpsertSeason(envelope.data);
-    case "upsertLeague":       return handleUpsertLeague(envelope.data);
-    case "upsertFixture":      return handleUpsertFixture(envelope.data);
-    case "deleteFixture":      return handleDeleteFixture(envelope.data);
-    case "deleteHandicap":     return handleDeleteHandicap(envelope.data);
-    case "deletePlayer":       return handleDeletePlayer(envelope.data);
-    case "deleteSeason":       return handleDeleteSeason(envelope.data);
-    case "deleteLeague":       return handleDeleteLeague(envelope.data);
-    case "upsertSeasonGroup":  return handleUpsertSeasonGroup(envelope.data);
+    case "upsertHandicap": return handleUpsertHandicap(envelope.data);
+    case "upsertSeason": return handleUpsertSeason(envelope.data);
+    case "upsertLeague": return handleUpsertLeague(envelope.data);
+    case "upsertFixture": return handleUpsertFixture(envelope.data);
+    case "approveFixtureResult": return handleApproveFixtureResult(envelope);
+    case "deleteFixture": return handleDeleteFixture(envelope.data);
+    case "deleteHandicap": return handleDeleteHandicap(envelope.data);
+    case "deletePlayer": return handleDeletePlayer(envelope.data);
+    case "deleteSeason": return handleDeleteSeason(envelope.data);
+    case "deleteLeague": return handleDeleteLeague(envelope.data);
+    case "upsertSeasonGroup": return handleUpsertSeasonGroup(envelope.data);
     default: return errorResponse(`Unknown action: ${envelope.action}`, 400);
   }
 }

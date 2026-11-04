@@ -15,7 +15,7 @@ var AdminMode = {
     this.refreshAdminNavVisibility();
   },
 
-  isUnlocked: function () {
+  isPinUnlocked: function () {
     var t = sessionStorage.getItem(this.TOKEN_KEY);
     if (!t) return false;
     var exp = sessionStorage.getItem(this.EXPIRES_KEY);
@@ -27,6 +27,16 @@ var AdminMode = {
       }
     }
     return true;
+  },
+
+  accountIsAdmin: function () {
+    if (typeof PlayerSession === 'undefined' || !PlayerSession.account) return false;
+    var account = PlayerSession.account();
+    return !!(account && account.isAdmin);
+  },
+
+  isUnlocked: function () {
+    return this.isPinUnlocked() || this.accountIsAdmin();
   },
 
   dispatchChange: function () {
@@ -50,9 +60,14 @@ var AdminMode = {
   },
 
   refreshNavLabel: function () {
-    var label = this.isUnlocked() ? 'Lock Admin Mode' : 'Unlock Admin Mode';
+    var pin = this.isPinUnlocked();
+    var viaAccount = this.accountIsAdmin();
+    var label = pin ? 'Lock Admin Mode' : 'Unlock Admin Mode';
     document.querySelectorAll('.nav-admin-toggle').forEach(function (btn) {
       btn.textContent = label;
+      btn.hidden = viaAccount;
+      var li = btn.closest('li');
+      if (li) li.hidden = viaAccount;
     });
     this.refreshAdminNavVisibility();
   },
@@ -131,15 +146,19 @@ var AdminMode = {
   },
 
   bindNavToggle: function () {
+    if (this._navToggleBound) return;
+    this._navToggleBound = true;
     var self = this;
-    document.querySelectorAll('.nav-admin-toggle').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        if (self.isUnlocked()) {
-          self.lock();
-        } else {
-          self.openDialog();
-        }
-      });
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('.nav-admin-toggle');
+      if (!btn) return;
+      e.preventDefault();
+      if (self.accountIsAdmin()) return;
+      if (self.isPinUnlocked()) {
+        self.lock();
+      } else {
+        self.openDialog();
+      }
     });
   },
 };

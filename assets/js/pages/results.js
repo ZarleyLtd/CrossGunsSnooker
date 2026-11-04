@@ -1,4 +1,4 @@
-// Results Page — match results; edit via same dialog as Fixtures (Admin or passcode)
+// Results Page — match results; edit via same dialog as Fixtures (admin, approver, or player)
 
 var ResultsPage = {
   KO_LABELS: {
@@ -47,6 +47,12 @@ var ResultsPage = {
       window.addEventListener(this.adminModeEvent(), function () {
         self.applyFilterAndRender();
       });
+      window.addEventListener(
+        typeof PlayerSession !== 'undefined' ? PlayerSession.EVENT_NAME : 'crossguns-player-session-changed',
+        function () {
+          self.applyFilterAndRender();
+        }
+      );
 
       window.addEventListener(CurrentCompetition.EVENT_NAME, function () {
         self.refreshFilterAndLoad().catch(function (e) {
@@ -328,6 +334,17 @@ var ResultsPage = {
 
         var enteredBy = String(match.resultEnteredBy || '').trim();
         if (enteredBy) div.setAttribute('data-result-entered-by', enteredBy);
+        var approvedBy = String(match.resultApprovedBy || '').trim();
+        if (approvedBy) div.setAttribute('data-result-approved-by', approvedBy);
+        if (match.resultApprovedAt) {
+          div.setAttribute('data-result-approved-at', match.resultApprovedAt);
+        }
+        div.setAttribute('data-result-posted-at', match.resultPostedAt || '');
+        var unapproved =
+          typeof FixturesPage !== 'undefined' &&
+          FixturesPage.isUnapprovedResult &&
+          FixturesPage.isUnapprovedResult(match);
+        if (unapproved) div.setAttribute('data-result-approved', 'false');
 
         var matchDate = match['Match Date'] || '';
         var playerA =
@@ -350,7 +367,11 @@ var ResultsPage = {
         }
 
         var resultEl;
-        if (fid && typeof FixturesPage !== 'undefined') {
+        var canEdit =
+          typeof FixturesPage !== 'undefined' &&
+          FixturesPage.canOpenResult &&
+          FixturesPage.canOpenResult(pidA, pidB, match.resultPostedAt || '', unapproved);
+        if (canEdit && fid) {
           resultEl = document.createElement('button');
           resultEl.type = 'button';
           resultEl.className = 'results-score-btn';
@@ -365,12 +386,14 @@ var ResultsPage = {
               playerBName
           );
           resultEl.addEventListener('click', function () {
-            FixturesPage.requestOpenResultDialog(div);
+            FixturesPage.openResultDialog(div);
           });
         } else {
           resultEl = document.createElement('span');
+          resultEl.className = 'results-score';
           resultEl.textContent = '[' + resultStr + ']';
         }
+        if (unapproved) resultEl.classList.add('is-unapproved');
         resultEl.style.flex = '0 0 auto';
         resultEl.style.fontWeight = 'bold';
         resultEl.style.minWidth = '3.5em';

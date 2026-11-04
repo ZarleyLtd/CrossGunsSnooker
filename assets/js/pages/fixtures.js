@@ -1,4 +1,4 @@
-// Fixtures Page — upcoming list + result entry (Admin Mode or passcode session)
+// Fixtures Page — upcoming list + result entry (admin, approver, or player in the match)
 
 var FixturesPage = {
   /** Dispatched on successful Save from the Enter result dialog (fixtures or results page). */
@@ -26,6 +26,9 @@ var FixturesPage = {
     'Remove this result from the database?\n\nFrames are 0–0, so the recorded score will be cleared and this fixture will show as having no result. Any breaks already saved for this match will be deleted.',
   CLEAR_RESULT_INLINE_MSG:
     'Frames are 0–0 — saving will remove this result from the database and delete any breaks already saved for this match.',
+  /** A player may edit their own match until 24 hours after the result is first posted. */
+  RESULT_EDIT_MS: 24 * 60 * 60 * 1000,
+  _openResultPostedAt: '',
 
   /** Cached fixtures from last network load (filtered client-side by group radios). */
   _allFixtures: null,
@@ -76,40 +79,91 @@ var FixturesPage = {
     return typeof AdminMode !== 'undefined' && AdminMode.isUnlocked();
   },
 
-  isScorePassUnlocked: function () {
-    return typeof ScorePasscode !== 'undefined' && ScorePasscode.isUnlocked();
+  isApproverAccount: function () {
+    if (this.isAdmin()) return false;
+    if (typeof PlayerSession === 'undefined' || !PlayerSession.account) return false;
+    var account = PlayerSession.account();
+    return !!(account && account.isApprover);
   },
 
-  canEnterResult: function () {
-    return this.isAdmin() || this.isScorePassUnlocked();
+  canApproveResults: function () {
+    return this.isAdmin() || this.isApproverAccount();
   },
 
-  /** Open result dialog if authorized; otherwise prompt for passcode first. */
-  requestOpenResultDialog: function (rowEl) {
-    var self = this;
-    if (this.canEnterResult()) {
-      this.openResultDialog(rowEl);
-      return;
+  canOpenResult: function (playerAId, playerBId, resultPostedAt) {
+    return this.canEditFixture(playerAId, playerBId, resultPostedAt);
+  },
+
+  isUnapprovedResult: function (match) {
+    if (!match || match.resultApproved !== false) return false;
+    return !!(match.Result && String(match.Result).trim()) ||
+      !!(match['Result'] && String(match['Result']).trim());
+  },
+
+  updateDialogApprove: function (show) {
+    var btn = document.getElementById('fixture-result-approve');
+    if (!btn) return;
+    var visible = !!(show && this.canApproveResults());
+    btn.hidden = !visible;
+    btn.style.display = visible ? '' : 'none';
+  },
+
+  canEditFixture: function (playerAId, playerBId, resultPostedAt) {
+    if (this.isAdmin() || this.isApproverAccount()) return true;
+    if (typeof PlayerSession === 'undefined' || !PlayerSession.isSignedIn()) return false;
+    var mine = this.normalizePlayerId(PlayerSession.playerId());
+    if (!mine) return false;
+    if (mine !== this.normalizePlayerId(playerAId) && mine !== this.normalizePlayerId(playerBId)) {
+      return false;
     }
-    if (typeof ScorePasscode === 'undefined') {
-      window.alert('Passcode entry is unavailable. Unlock Admin Mode from the menu.');
-      return;
-    }
-    ScorePasscode.openDialog(rowEl, function (row) {
-      self.openResultDialog(row);
-    });
+    if (!resultPostedAt) return true;
+    var posted = new Date(resultPostedAt).getTime();
+    if (isNaN(posted)) return true;
+    return Date.now() < posted + this.RESULT_EDIT_MS;
   },
 
-  formatEnteredByLabel: function (enteredBy) {
+  formatEntryDateTime: function (postedAt) {
+    var raw = String(postedAt || '').trim();
+    if (!raw) return '';
+    var dt = new Date(raw);
+    if (isNaN(dt.getTime())) return '';
+    var months =
+      typeof Formatters !== 'undefined' && Formatters._monthShort
+        ? Formatters._monthShort
+        : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var hh = String(dt.getHours()).padStart(2, '0');
+    var mm = String(dt.getMinutes()).padStart(2, '0');
+    return dt.getDate() + ' ' + months[dt.getMonth()] + ' ' + dt.getFullYear() + ' at ' + hh + ':' + mm;
+  },
+
+  formatEnteredByLabel: function (enteredBy, postedAt) {
     var by = String(enteredBy || '').trim();
     if (!by) return '';
-    return 'Entered using ' + by;
+    var when = this.formatEntryDateTime(postedAt);
+    if (!when) return 'Entered by ' + by;
+    return 'Entered by ' + by + ' on ' + when;
   },
 
-  updateDialogEnteredBy: function (enteredBy) {
+  updateDialogEnteredBy: function (enteredBy, postedAt) {
     var el = document.getElementById('fixture-result-entered-by');
     if (!el) return;
-    var text = this.isAdmin() ? this.formatEnteredByLabel(enteredBy) : '';
+    var text = this.formatEnteredByLabel(enteredBy, postedAt);
+    el.textContent = text;
+    el.hidden = !text;
+  },
+
+  formatApprovedByLabel: function (approvedBy, approvedAt) {
+    var by = String(approvedBy || '').trim();
+    if (!by) return '';
+    var when = this.formatEntryDateTime(approvedAt);
+    if (!when) return 'Approved by ' + by;
+    return 'Approved by ' + by + ' on ' + when;
+  },
+
+  updateDialogApprovedBy: function (approvedBy, approvedAt, isApproved) {
+    var el = document.getElementById('fixture-result-approved-by');
+    if (!el) return;
+    var text = isApproved ? this.formatApprovedByLabel(approvedBy, approvedAt) : '';
     el.textContent = text;
     el.hidden = !text;
   },
@@ -487,6 +541,12 @@ var FixturesPage = {
     window.addEventListener(this.adminModeEvent(), function () {
       self.applyFilterAndRender();
     });
+    window.addEventListener(
+      typeof PlayerSession !== 'undefined' ? PlayerSession.EVENT_NAME : 'crossguns-player-session-changed',
+      function () {
+        self.applyFilterAndRender();
+      }
+    );
 
     window.addEventListener(CurrentCompetition.EVENT_NAME, function () {
       self.refreshFilterAndRender().catch(function (e) {
@@ -587,6 +647,20 @@ var FixturesPage = {
         if (side && (action === 'inc' || action === 'dec')) {
           self.adjustPlayerScore(side, action === 'inc' ? 1 : -1);
         }
+      });
+    }
+
+    var approveBtn = document.getElementById('fixture-result-approve');
+    if (approveBtn) {
+      approveBtn.addEventListener('click', function () {
+        self.approveResultDialog().catch(function (err) {
+          var msg = document.getElementById('fixture-result-msg');
+          if (msg) {
+            msg.textContent = err.message || String(err);
+            msg.hidden = false;
+            msg.classList.add('msg--warning');
+          }
+        });
       });
     }
 
@@ -1025,13 +1099,22 @@ var FixturesPage = {
         div.setAttribute('data-result-ready', resultReady ? 'true' : 'false');
         var enteredBy = String(match.resultEnteredBy || '').trim();
         if (enteredBy) div.setAttribute('data-result-entered-by', enteredBy);
+        var approvedBy = String(match.resultApprovedBy || '').trim();
+        if (approvedBy) div.setAttribute('data-result-approved-by', approvedBy);
+        if (match.resultApprovedAt) {
+          div.setAttribute('data-result-approved-at', match.resultApprovedAt);
+        }
+        div.setAttribute('data-result-posted-at', match.resultPostedAt || '');
+        var unapproved = self.isUnapprovedResult(match);
+        if (unapproved) div.setAttribute('data-result-approved', 'false');
 
         var matchDate = match['Match Date'] || '';
         var playerA = self.makePlayerNameEl(nameA, pidA, matchDate, 'right');
         var playerB = self.makePlayerNameEl(nameB, pidB, matchDate, 'left');
 
         var center;
-        if (fid && resultReady) {
+        var canEdit = self.canOpenResult(pidA, pidB, match.resultPostedAt || '', unapproved);
+        if (canEdit && fid && resultReady) {
           center = document.createElement('button');
           center.type = 'button';
           center.className = 'fixture-vs-btn';
@@ -1041,7 +1124,7 @@ var FixturesPage = {
             'Enter result for ' + nameA + ' vs ' + nameB
           );
           center.addEventListener('click', function () {
-            self.requestOpenResultDialog(div);
+            self.openResultDialog(div);
           });
         } else {
           center = document.createElement('span');
@@ -1051,6 +1134,15 @@ var FixturesPage = {
             center.setAttribute(
               'title',
               'Result entry is available once both players are known'
+            );
+          }
+        }
+        if (unapproved) {
+          center.classList.add('is-unapproved');
+          if (center.tagName === 'BUTTON') {
+            center.setAttribute(
+              'aria-label',
+              'Unapproved result for ' + nameA + ' vs ' + nameB
             );
           }
         }
@@ -1136,7 +1228,8 @@ var FixturesPage = {
 
   openResultDialog: function (rowEl) {
     var dlg = document.getElementById('fixture-result-dialog');
-    if (!dlg) return;
+    if (!dlg || !rowEl) return;
+    if (rowEl.getAttribute('data-result-ready') === 'false') return;
 
     var fid = String(rowEl.getAttribute('data-fixture-id') || '').trim();
     var pidA = String(rowEl.getAttribute('data-player-a-id') || '').trim();
@@ -1146,12 +1239,23 @@ var FixturesPage = {
     var prevDate = rowEl.getAttribute('data-match-date');
     var bestOf = this.normalizeBestOf(rowEl.getAttribute('data-best-of'));
     this._currentBestOf = bestOf;
+    this._openResultPostedAt = rowEl.getAttribute('data-result-posted-at') || '';
+    if (!this.canEditFixture(pidA, pidB, this._openResultPostedAt)) return;
 
     document.getElementById('fixture-result-fixture-id').value = fid;
     document.getElementById('fixture-result-player-a-id').value = pidA;
     document.getElementById('fixture-result-player-b-id').value = pidB;
 
-    this.updateDialogEnteredBy(rowEl.getAttribute('data-result-entered-by'));
+    this.updateDialogEnteredBy(
+      rowEl.getAttribute('data-result-entered-by'),
+      rowEl.getAttribute('data-result-posted-at')
+    );
+    this.updateDialogApprovedBy(
+      rowEl.getAttribute('data-result-approved-by'),
+      rowEl.getAttribute('data-result-approved-at'),
+      rowEl.getAttribute('data-result-approved') !== 'false'
+    );
+    this.updateDialogApprove(rowEl.getAttribute('data-result-approved') === 'false');
 
     this.setResultDialogMatchDate(prevDate && String(prevDate).trim() ? prevDate : '');
     this.setResultDialogPlayerLabels(nameA, nameB);
@@ -1233,6 +1337,26 @@ var FixturesPage = {
     });
   },
 
+  approveResultDialog: async function () {
+    var dlg = document.getElementById('fixture-result-dialog');
+    var msg = document.getElementById('fixture-result-msg');
+    var fixtureId = document.getElementById('fixture-result-fixture-id').value;
+    if (!fixtureId) throw new Error('Missing fixture');
+    if (!this.canApproveResults()) throw new Error('Only an approver or an admin can approve this result.');
+    if (msg) {
+      msg.textContent = 'Approving…';
+      msg.hidden = false;
+      msg.classList.remove('msg--warning', 'msg--success');
+    }
+    await ApiClient.post('approveFixtureResult', { fixtureId: fixtureId });
+    this._slipSaveSucceeded = true;
+    if (dlg) dlg.close();
+    window.dispatchEvent(
+      new CustomEvent(this.RESULT_SAVED_EVENT, { detail: { fixtureId: fixtureId } })
+    );
+    if (document.getElementById('fixtures-list')) await this.loadAndRender();
+  },
+
   submitResultDialog: async function () {
     var dlg = document.getElementById('fixture-result-dialog');
     var msg = document.getElementById('fixture-result-msg');
@@ -1250,9 +1374,9 @@ var FixturesPage = {
       throw new Error('Enter a valid match date (e.g. 31 Jan 2026).');
     }
 
-    if (!this.canEnterResult()) {
+    if (!this.canEditFixture(pidA, pidB, this._openResultPostedAt || '')) {
       throw new Error(
-        'Enter a passcode or unlock Admin Mode from the menu, then save again.'
+        'This result can only be changed within 24 hours of being posted, and only by a player in the match, an approver, or an admin.'
       );
     }
 

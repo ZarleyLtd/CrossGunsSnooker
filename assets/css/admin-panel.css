@@ -1026,3 +1026,29 @@
   background: var(--warning-color);
   color: var(--white);
 }
+
+
+/* Accounts — registration codes and player accounts */
+.admin-account-form__action { flex: 0 0 auto; display: flex; align-items: flex-end; }
+.admin-ac-btn[hidden] { display: none !important; }
+.admin-ac-btn { display: inline-flex; align-items: center; justify-content: center; width: auto; min-width: 6.5rem; min-height: 2.4rem; margin: 0; padding: 0.45em 0.9em; line-height: 1.2; text-align: center; white-space: nowrap; box-sizing: border-box; flex-shrink: 0; }
+.admin-ac-code__lead, .admin-ac-code__expires { margin: 0.35rem 0; }
+.admin-ac-code__actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.65rem; margin: 0.35rem 0 0.75rem; }
+.admin-ac-code__actions .admin-ac-btn { width: auto; }
+.admin-player-picks.admin-item-list > .admin-ac-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 0.85rem; row-gap: 0.45rem; margin: 0; padding: 0.7em 0.85em; border: none; border-bottom: 1px solid var(--light); border-radius: 0; background: transparent; color: var(--text-color); box-sizing: border-box; width: 100%; min-height: 0; text-align: left; }
+.admin-player-picks.admin-item-list > .admin-ac-row:last-child { border-bottom: none; }
+.admin-player-picks.admin-item-list > button.admin-ac-row { font: inherit; font-size: inherit; font-weight: normal; font-variation-settings: inherit; cursor: pointer; overflow: visible; appearance: none; -webkit-appearance: none; }
+.admin-player-picks.admin-item-list > button.admin-ac-row:hover, .admin-player-picks.admin-item-list > button.admin-ac-row:focus { background: rgba(255, 255, 255, 0.06); color: var(--text-color); }
+.admin-ac-row__text { min-width: 0; }
+.admin-ac-row__title, .admin-ac-row__meta { display: block; margin: 0; overflow-wrap: anywhere; line-height: 1.35; }
+.admin-ac-row__title { font-weight: 600; }
+.admin-ac-row__meta { margin-top: 0.15em; color: var(--gray); font-size: 0.92em; font-weight: 400; }
+.admin-ac-row__badge { justify-self: end; align-self: start; margin-top: 0.2em; color: var(--color); font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+.admin-ac-row > .admin-ac-btn { justify-self: end; }
+.admin-ac-dialog__meta { margin: 0 0 0.35rem; text-align: center; font-weight: 600; }
+.admin-ac-dialog__hint { margin: 0 0 1rem; color: var(--gray); font-size: 0.92em; text-align: center; }
+.admin-ac-dialog__actions { display: flex; flex-direction: column; align-items: stretch; gap: 0.65rem; margin: 0 0 0.5rem; }
+.admin-ac-dialog__actions > .admin-ac-btn, .admin-ac-dialog__actions > .btn + .btn { margin: 0; width: 100%; align-self: stretch; justify-content: center; }
+.admin-ac-code__actions > .btn + .btn { margin: 0; }
+.admin-modal--dark .admin-ac-dialog__meta { color: var(--text-color); }
+@media (max-width: 40rem) { .admin-player-picks.admin-item-list > div.admin-ac-row { grid-template-columns: minmax(0, 1fr); } .admin-ac-row > .admin-ac-btn { justify-self: stretch; width: 100%; } }

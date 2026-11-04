@@ -91,7 +91,14 @@ const LeaguesPage = {
       root.appendChild(wrapper);
 
       const lg = byId[String(g.leagueId)] || { rows: [] };
-      LeagueStandings.render(pre.id, lg.rows || []);
+      const rows = lg.rows || [];
+      LeagueStandings.render(pre.id, rows);
+      if (rows.some(function (player) { return player && player.unapproved; })) {
+        const note = document.createElement('p');
+        note.className = 'standings-pending-note';
+        note.textContent = '* some results are pending approval';
+        wrapper.appendChild(note);
+      }
     });
   },
 };

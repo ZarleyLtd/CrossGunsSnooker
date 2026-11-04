@@ -4,6 +4,10 @@
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#D73A42" />
+    <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
+    <link rel="manifest" href="manifest.json" />
     <title>Bulk Load Players - CrossGuns Snooker League</title>
     <link rel="stylesheet" href="assets/css/style.css" />
     <noscript
@@ -16,6 +20,7 @@
     <script src="assets/js/config/app-config.js"></script>
     <script src="assets/js/utils/api-client.js"></script>
     <script src="assets/js/utils/admin-mode.js"></script>
+    <script src="assets/js/utils/player-session.js"></script>
     <script src="assets/js/utils/formatters.js"></script>
     <script src="assets/js/utils/image-loader.js"></script>
     <script src="assets/js/utils/player-slug.js"></script>
@@ -42,8 +47,17 @@
           <li><a href="top-breaks.html" target="_self">Top Breaks</a></li>
           <li><a href="handicaps.html" target="_self">Handicaps</a></li>
           <li><a href="rules.html" target="_self">Rules</a></li>
+          <li class="nav-account-signed-out">
+            <button type="button" class="nav-account-connect">Connect</button>
+          </li>
+          <li class="nav-account-signed-in" hidden>
+            <span class="nav-account-who"></span>
+          </li>
+          <li class="nav-account-signed-in" hidden>
+            <button type="button" class="nav-account-signout">Sign out</button>
+          </li>
           <li><button type="button" class="nav-admin-toggle" id="nav-admin-mode-toggle">Unlock Admin Mode</button></li>
-          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-passcodes.html" target="_self">Manage Passcodes</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
+          <li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-competitions.html" target="_self">Manage Comps</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-players.html" target="_self">Manage Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-fixtures.html" target="_self">Manage Fixtures</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-accounts.html" target="_self">Accounts</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-players.html" target="_self">Bulk Load Players</a></li><li class="nav-admin-only" hidden aria-hidden="true"><a href="admin-bulk-fixtures.html" target="_self">Bulk Load Fixtures</a></li>
         </ul>
       </nav>
     </header>

@@ -1,6 +1,10 @@
 // Main Entry Point & Page Router
 // Determines which page module to initialize based on DOM elements
 
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  navigator.serviceWorker.register('sw.js').catch(function () {});
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   // Initialize image loading
   if (typeof ImageLoader !== 'undefined') {
@@ -27,11 +31,8 @@ document.addEventListener('DOMContentLoaded', function() {
   if (document.getElementById('adminPlayersRoot') && typeof AdminPlayersPage !== 'undefined') {
     AdminPlayersPage.init();
   }
-  if (document.getElementById('adminPasscodesRoot') && typeof AdminPasscodesPage !== 'undefined') {
-    AdminPasscodesPage.init();
-  }
-  if (document.getElementById('adminPasscodeRoot') && typeof AdminPasscodePage !== 'undefined') {
-    AdminPasscodePage.init();
+  if (document.getElementById('adminAccountsRoot') && typeof AdminAccountsPage !== 'undefined') {
+    AdminAccountsPage.init();
   }
   if (document.getElementById('adminBulkPlayersRoot') && typeof AdminBulkPlayersPage !== 'undefined') {
     AdminBulkPlayersPage.init();
