@@ -1,0 +1,50 @@
+/* JP logo button. Canonical copy: cursor-sites-shared/jp-logo/jp-logo.css (spec: jp-logo/JP_LOGO.md).
+   Apps get a synced copy from scripts/sync-ui.ps1. Theme it with the variables below, set on
+   .jp-logo or any ancestor, rather than editing this file.
+
+   The doubled class and the explicit states are deliberate: many apps style every button globally
+   (the Publii themes set a pill border, padding, colours and width on [type=button], button and
+   their :hover/:focus states), and the logo must look the same whatever the app does to buttons. */
+.jp-logo.jp-logo,
+.jp-logo.jp-logo:hover,
+.jp-logo.jp-logo:focus,
+.jp-logo.jp-logo:active {
+  display: inline-block;
+  vertical-align: middle;
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  box-shadow: none;
+  color: var(--jp-logo-color, #fff);
+  font: inherit;
+  line-height: 0;
+  overflow: visible;
+  transform: none;
+  transition: none;
+  will-change: auto;
+  cursor: pointer;
+}
+.jp-logo.jp-logo img,
+.jp-logo.jp-logo svg {
+  display: block;
+  height: var(--jp-logo-height, 22px);
+  width: auto;
+  max-width: none;
+  aspect-ratio: 2000 / 1186;
+}
+.jp-logo.jp-logo:focus { outline: none; }
+.jp-logo.jp-logo:focus-visible {
+  outline: 2px solid var(--jp-logo-focus, currentColor);
+  outline-offset: 2px;
+}
+
+/* Dark logo for light backgrounds. The animated SVG follows --jp-logo-color; the PNG fallback is
+   white, so it is inverted here. */
+.jp-logo.jp-logo--dark { --jp-logo-color: #000; }
+.jp-logo.jp-logo--dark img { filter: invert(1); }
