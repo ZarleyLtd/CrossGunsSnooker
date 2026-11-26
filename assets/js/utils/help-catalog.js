@@ -152,6 +152,10 @@ window.CrossGunsHelpCatalog = {
       title: 'Back to top',
       body: 'Scrolls the page back to the top.'
     },
+    'chrome.credit': {
+      title: 'Created by JP',
+      body: 'Who made this site. Tap the JP logo to watch it come apart into a J and a P and fold back together.'
+    },
     'chrome.compName': {
       title: 'Competition on show',
       body: 'The competition these lists use. Change it from the home page arrows. League tables hide while a knockout is on show.'

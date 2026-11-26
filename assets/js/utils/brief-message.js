@@ -13,6 +13,11 @@
       .replace(/>/g, '&gt;');
   }
 
+  /**
+   * @param {string} text
+   * @param {Element|null} anchorEl
+   * @param {{ durationMs?: number, placement?: 'above'|'below', disableElement?: Element|null, multiline?: boolean }} [options]
+   */
   function showBriefMessage(text, anchorEl, options) {
     options = options || {};
     var duration = options.durationMs != null ? options.durationMs : 1000;
@@ -63,6 +68,7 @@
     }, duration);
   }
 
+  /** Callable as BriefMessage(text, el) or BriefMessage.show(text, el, opts). */
   function BriefMessage(text, anchorEl, options) {
     return showBriefMessage(text, anchorEl, options);
   }
